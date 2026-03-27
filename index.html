@@ -20,10 +20,10 @@
 <script type="module">
 // Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-app.js";
-import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
+import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-analytics.js";
 
-// Your Firebase config
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
   authDomain: "sac-town-ballers-roster.firebaseapp.com",
@@ -39,16 +39,20 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
+// Teams
 const TEAMS = ['Jr. High', 'JV', 'Varsity'];
 let dbData = { players: [] };
 let state = { screen:'splash', selectedTeam:null, selectedPlayer:null, showEditModal:false, tempPlayer:null };
+
+// Placeholders
 const placeholders = { fullName:"Player Full Name", jerseyNumber:"Jersey #", jerseySize:"Size", birthdate:"MM/DD/YYYY", parentName:"Parent Name", parentEmail:"Parent Email", parentPhone:"Parent Phone" };
 
+// Generate unique ID
 function uuid(){ return 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
-// Load all players from Firebase
+// Load all players
 async function loadDb(){
-  try{
+  try {
     const snapshot = await get(child(ref(db), "players"));
     dbData.players = snapshot.exists() ? Object.values(snapshot.val()) : [];
   } catch(e){
@@ -64,6 +68,16 @@ async function savePlayer(player){
   } catch(e){
     console.error("Firebase save error:", e);
     alert("Failed to save player");
+  }
+}
+
+// Delete player completely
+async function deletePlayer(player){
+  try{
+    await remove(ref(db, 'players/' + player.id));
+  } catch(e){
+    console.error("Firebase delete error:", e);
+    alert("Failed to delete player");
   }
 }
 
@@ -94,6 +108,7 @@ function render(){
     topText.textContent="Select what team you'd like to edit";
     topText.className='text-white text-sm mb-4';
     div.appendChild(topText);
+
     TEAMS.forEach(team=>{
       const btn=document.createElement('button');
       btn.textContent=team;
@@ -101,6 +116,7 @@ function render(){
       btn.onclick=()=>{ state.selectedTeam=team; state.screen='roster'; render(); };
       div.appendChild(btn);
     });
+
     appEl.appendChild(div);
     return;
   }
@@ -135,7 +151,7 @@ function render(){
     const activePlayers = dbData.players.filter(p=>p.team===state.selectedTeam && p.status==='active').sort((a,b)=>a.fullName.localeCompare(b.fullName));
     activePlayers.forEach(p=>{
       const pDiv=document.createElement('div');
-      pDiv.textContent=p.fullName+(p.jerseyNumber?` (#${p.jerseyNumber})`:'');
+      pDiv.textContent=p.fullName+(p.jerseyNumber?` (#${p.jerseyNumber})`:'' );
       pDiv.className='cursor-pointer px-3 py-2 border-b border-slate-700';
       pDiv.onclick=()=>{ state.selectedPlayer=p; state.tempPlayer={...p}; state.showEditModal=true; render(); };
       div.appendChild(pDiv);
@@ -156,6 +172,7 @@ function render(){
         div.appendChild(pDiv);
       });
     }
+
     appEl.appendChild(div);
   }
 
@@ -165,12 +182,13 @@ function render(){
     modal.className='fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50';
     const content=document.createElement('div');
     content.className='bg-slate-900 p-6 rounded-2xl max-w-md w-full flex flex-col gap-2 relative';
+    
     ['fullName','jerseyNumber','jerseySize','birthdate','parentName','parentEmail','parentPhone'].forEach(f=>{
       const input=document.createElement('input');
       input.placeholder=placeholders[f];
       input.value=state.tempPlayer[f];
       input.className='p-2 rounded text-slate-950 w-full';
-      input.oninput=(e)=>{state.tempPlayer[f]=e.target.value;};
+      input.oninput=(e)=>{ state.tempPlayer[f]=e.target.value; };
       content.appendChild(input);
     });
 
@@ -195,32 +213,46 @@ function render(){
     deleteBtn.className='px-4 py-2 bg-red-800 text-white rounded';
     deleteBtn.onclick=async ()=>{
       if(confirm("Delete this player?")){
-        state.tempPlayer.status='deleted';
-        await savePlayer(state.tempPlayer);
+        await deletePlayer(state.tempPlayer);
         state.showEditModal=false;
         await loadDb();
         render();
       }
     };
 
-    // Switch Team
+    // Switch Team Dropdown
+    const switchDiv=document.createElement('div');
+    switchDiv.className='flex gap-2';
+    const switchLabel=document.createElement('span');
+    switchLabel.textContent='Switch Team:';
+    switchLabel.className='text-white flex items-center';
+    const switchSelect=document.createElement('select');
+    switchSelect.className='p-2 rounded text-slate-950 flex-1';
+    TEAMS.forEach(t=>{
+      const option=document.createElement('option');
+      option.value=t;
+      option.textContent=t;
+      if(state.tempPlayer.team===t) option.selected=true;
+      switchSelect.appendChild(option);
+    });
     const switchBtn=document.createElement('button');
-    switchBtn.textContent='Switch Team';
+    switchBtn.textContent='Switch';
     switchBtn.className='px-4 py-2 bg-blue-600 text-white rounded';
     switchBtn.onclick=async ()=>{
-      const newTeam = prompt(`Move ${state.tempPlayer.fullName} to which team? (Jr. High, JV, Varsity)`);
-      if(newTeam && TEAMS.includes(newTeam)){
-        state.tempPlayer.team = newTeam;
-        await savePlayer(state.tempPlayer);
-        state.showEditModal=false;
-        await loadDb();
-        render();
-      }
+      const newTeam = switchSelect.value;
+      state.tempPlayer.team = newTeam;
+      await savePlayer(state.tempPlayer);
+      state.showEditModal=false;
+      await loadDb();
+      render();
     };
+    switchDiv.appendChild(switchLabel);
+    switchDiv.appendChild(switchSelect);
+    switchDiv.appendChild(switchBtn);
 
     btns.appendChild(saveBtn);
     btns.appendChild(deleteBtn);
-    btns.appendChild(switchBtn);
+    btns.appendChild(switchDiv);
     content.appendChild(btns);
     modal.appendChild(content);
     appEl.appendChild(modal);
@@ -230,6 +262,7 @@ function render(){
 // Initial load
 await loadDb();
 render();
+
 </script>
 </body>
 </html>
