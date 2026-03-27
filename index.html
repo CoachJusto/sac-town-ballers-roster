@@ -18,12 +18,11 @@
 <div id="app" class="w-full h-full"></div>
 
 <script type="module">
-// Firebase imports
+// ---------------- Firebase Imports ----------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-app.js";
-import { getDatabase, ref, set, get, child, remove } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-analytics.js";
+import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.2.0/firebase-database.js";
 
-// Firebase config
+// ---------------- Firebase Config ----------------
 const firebaseConfig = {
   apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
   authDomain: "sac-town-ballers-roster.firebaseapp.com",
@@ -34,23 +33,18 @@ const firebaseConfig = {
   measurementId: "G-T5DL7XWQY2"
 };
 
-// Initialize Firebase
+// ---------------- Initialize Firebase ----------------
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const db = getDatabase(app);
 
-// Teams
+// ---------------- Global State ----------------
 const TEAMS = ['Jr. High', 'JV', 'Varsity'];
 let dbData = { players: [] };
 let state = { screen:'splash', selectedTeam:null, selectedPlayer:null, showEditModal:false, tempPlayer:null };
-
-// Placeholders
 const placeholders = { fullName:"Player Full Name", jerseyNumber:"Jersey #", jerseySize:"Size", birthdate:"MM/DD/YYYY", parentName:"Parent Name", parentEmail:"Parent Email", parentPhone:"Parent Phone" };
-
-// Generate unique ID
 function uuid(){ return 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
-// Load all players
+// ---------------- Firebase Functions ----------------
 async function loadDb(){
   try {
     const snapshot = await get(child(ref(db), "players"));
@@ -61,9 +55,8 @@ async function loadDb(){
   }
 }
 
-// Save or update player
 async function savePlayer(player){
-  try{
+  try {
     await set(ref(db, 'players/' + player.id), player);
   } catch(e){
     console.error("Firebase save error:", e);
@@ -71,22 +64,12 @@ async function savePlayer(player){
   }
 }
 
-// Delete player completely
-async function deletePlayer(player){
-  try{
-    await remove(ref(db, 'players/' + player.id));
-  } catch(e){
-    console.error("Firebase delete error:", e);
-    alert("Failed to delete player");
-  }
-}
-
-// Render app
+// ---------------- Render Function ----------------
 function render(){
   const appEl = document.getElementById('app');
   appEl.innerHTML='';
 
-  // Splash
+  // --- Splash Screen ---
   if(state.screen==='splash'){
     const div = document.createElement('div');
     div.className='flex flex-col items-center justify-center h-full';
@@ -100,7 +83,7 @@ function render(){
     return;
   }
 
-  // Team Selection
+  // --- Team Selection ---
   if(state.screen==='teamSelect'){
     const div = document.createElement('div');
     div.className='flex flex-col items-center gap-6 mt-6';
@@ -108,7 +91,6 @@ function render(){
     topText.textContent="Select what team you'd like to edit";
     topText.className='text-white text-sm mb-4';
     div.appendChild(topText);
-
     TEAMS.forEach(team=>{
       const btn=document.createElement('button');
       btn.textContent=team;
@@ -116,12 +98,11 @@ function render(){
       btn.onclick=()=>{ state.selectedTeam=team; state.screen='roster'; render(); };
       div.appendChild(btn);
     });
-
     appEl.appendChild(div);
     return;
   }
 
-  // Roster
+  // --- Roster Page ---
   if(state.screen==='roster'){
     const div = document.createElement('div');
     div.className='max-w-xl mx-auto mt-6';
@@ -176,26 +157,25 @@ function render(){
     appEl.appendChild(div);
   }
 
-  // Edit Modal
+  // --- Edit Modal ---
   if(state.showEditModal){
     const modal=document.createElement('div');
     modal.className='fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50';
     const content=document.createElement('div');
     content.className='bg-slate-900 p-6 rounded-2xl max-w-md w-full flex flex-col gap-2 relative';
-    
+
     ['fullName','jerseyNumber','jerseySize','birthdate','parentName','parentEmail','parentPhone'].forEach(f=>{
       const input=document.createElement('input');
       input.placeholder=placeholders[f];
       input.value=state.tempPlayer[f];
       input.className='p-2 rounded text-slate-950 w-full';
-      input.oninput=(e)=>{ state.tempPlayer[f]=e.target.value; };
+      input.oninput=(e)=>{state.tempPlayer[f]=e.target.value;};
       content.appendChild(input);
     });
 
     const btns=document.createElement('div');
     btns.className='flex flex-col mt-4 gap-2';
 
-    // Save
     const saveBtn=document.createElement('button');
     saveBtn.textContent='Save';
     saveBtn.className='px-4 py-2 bg-pantone-802c text-slate-950 rounded';
@@ -207,62 +187,49 @@ function render(){
       render();
     };
 
-    // Delete
     const deleteBtn=document.createElement('button');
     deleteBtn.textContent='Delete Permanently';
     deleteBtn.className='px-4 py-2 bg-red-800 text-white rounded';
     deleteBtn.onclick=async ()=>{
       if(confirm("Delete this player?")){
-        await deletePlayer(state.tempPlayer);
+        state.tempPlayer.status='deleted';
+        await savePlayer(state.tempPlayer);
         state.showEditModal=false;
         await loadDb();
         render();
       }
     };
 
-    // Switch Team Dropdown
-    const switchDiv=document.createElement('div');
-    switchDiv.className='flex gap-2';
-    const switchLabel=document.createElement('span');
-    switchLabel.textContent='Switch Team:';
-    switchLabel.className='text-white flex items-center';
-    const switchSelect=document.createElement('select');
-    switchSelect.className='p-2 rounded text-slate-950 flex-1';
-    TEAMS.forEach(t=>{
-      const option=document.createElement('option');
-      option.value=t;
-      option.textContent=t;
-      if(state.tempPlayer.team===t) option.selected=true;
-      switchSelect.appendChild(option);
-    });
     const switchBtn=document.createElement('button');
-    switchBtn.textContent='Switch';
+    switchBtn.textContent='Switch Team';
     switchBtn.className='px-4 py-2 bg-blue-600 text-white rounded';
     switchBtn.onclick=async ()=>{
-      const newTeam = switchSelect.value;
-      state.tempPlayer.team = newTeam;
-      await savePlayer(state.tempPlayer);
-      state.showEditModal=false;
-      await loadDb();
-      render();
+      const newTeam = prompt(`Move ${state.tempPlayer.fullName} to which team? (Jr. High, JV, Varsity)`);
+      if(newTeam && TEAMS.includes(newTeam)){
+        state.tempPlayer.team=newTeam;
+        await savePlayer(state.tempPlayer);
+        state.showEditModal=false;
+        await loadDb();
+        render();
+      }
     };
-    switchDiv.appendChild(switchLabel);
-    switchDiv.appendChild(switchSelect);
-    switchDiv.appendChild(switchBtn);
 
     btns.appendChild(saveBtn);
     btns.appendChild(deleteBtn);
-    btns.appendChild(switchDiv);
+    btns.appendChild(switchBtn);
     content.appendChild(btns);
     modal.appendChild(content);
     appEl.appendChild(modal);
   }
 }
 
-// Initial load
-await loadDb();
-render();
+// ---------------- Main ----------------
+async function main(){
+  await loadDb();
+  render();
+}
 
+main();
 </script>
 </body>
 </html>
