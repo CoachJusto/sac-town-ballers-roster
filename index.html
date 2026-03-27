@@ -14,56 +14,91 @@
   .hover-bg-pantone-802c:hover { background-color: #00e05a; }
 </style>
 </head>
-<body class="bg-slate-950 text-white h-screen flex items-center justify-center">
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center justify-center">
 <div id="app" class="w-full h-full"></div>
 <script>
 const TEAMS = ['Jr. High', 'JV', 'Varsity'];
 const STORAGE_KEY = 'roster_data';
 let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || { players: [] };
 
-let state = { screen: 'splash', selectedTeam: null, selectedPlayer: null, showEditModal: false, showRemoveModal: false, tempPlayer: null, removeReason: '' };
+let state = {
+  screen: 'splash',
+  selectedTeam: null,
+  selectedPlayer: null,
+  showEditModal: false,
+  showRemoveModal: false,
+  showSwitchTeamModal: false,
+  tempPlayer: null
+};
 
 function saveDb() { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); }
-
 function uuid() { return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+const placeholders = {
+  fullName: "Player Full Name",
+  jerseyNumber: "Jersey Number",
+  jerseySize: "Jersey Size",
+  birthdate: "Birthdate (MM/DD/YYYY)",
+  parentName: "Parent/Guardian Name",
+  parentEmail: "Parent Email",
+  parentPhone: "Parent Phone"
+};
 
 function render() {
   const app = document.getElementById('app');
   app.innerHTML = '';
 
+  // Splash Screen with main logo
   if(state.screen === 'splash') {
     const div = document.createElement('div');
     div.className = 'flex flex-col items-center justify-center h-full';
-    div.innerHTML = `<h1 class='text-4xl md:text-6xl font-black pantone-802c'>Sac Town Ballers Roster</h1>`;
+    div.innerHTML = `
+      <img src='https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png' alt='Ballers Logo' class='w-48 mb-4'/>
+      <h1 class='text-2xl md:text-3xl font-semibold text-white mb-2'>Sac Town Ballers</h1>
+      <h2 class='text-6xl md:text-8xl font-black pantone-802c'>Roster</h2>
+    `;
     app.appendChild(div);
     setTimeout(() => { state.screen='teamSelect'; render(); }, 2000);
+    return;
   }
 
-  else if(state.screen === 'teamSelect') {
+  // Team Selection Screen
+  if(state.screen === 'teamSelect') {
     const div = document.createElement('div');
-    div.className='flex flex-col items-center gap-6 mt-10';
+    div.className='flex flex-col items-center gap-6 mt-6';
+    const topText = document.createElement('div');
+    topText.textContent = "Select what team you'd like to edit";
+    topText.className = 'text-white text-sm mb-4';
+    div.appendChild(topText);
+
     TEAMS.forEach(team => {
       const btn = document.createElement('button');
       btn.textContent = team;
-      btn.className='px-8 py-4 rounded-2xl font-bold bg-pantone-802c hover-bg-pantone-802c text-slate-950 text-xl';
+      btn.className='w-48 px-8 py-4 rounded-2xl font-bold bg-pantone-802c hover-bg-pantone-802c text-slate-950 text-xl';
       btn.onclick = () => { state.selectedTeam = team; state.screen='roster'; render(); };
       div.appendChild(btn);
     });
     app.appendChild(div);
+    return;
   }
 
-  else if(state.screen === 'roster') {
+  // Roster Screen
+  if(state.screen === 'roster') {
     const div = document.createElement('div');
     div.className='max-w-xl mx-auto mt-6';
     const header = document.createElement('div');
     header.className='flex justify-between mb-4 items-center';
     const title = document.createElement('h2');
-    title.textContent = state.selectedTeam;
+    title.textContent = state.selectedTeam + ' Roster';
     title.className='text-2xl font-bold';
     const addBtn = document.createElement('button');
     addBtn.textContent='Add Player';
     addBtn.className='px-4 py-2 rounded bg-pantone-802c text-slate-950 font-semibold';
-    addBtn.onclick = () => { state.tempPlayer={id:uuid(),team:state.selectedTeam,fullName:'',jerseyNumber:'',jerseySize:'',birthdate:'',parentName:'',parentEmail:'',parentPhone:'',status:'active',removalReason:null}; state.showEditModal=true; render(); };
+    addBtn.onclick = () => {
+      state.tempPlayer = {id:uuid(),team:state.selectedTeam,fullName:'',jerseyNumber:'',jerseySize:'',birthdate:'',parentName:'',parentEmail:'',parentPhone:'',status:'active',removalReason:null};
+      state.showEditModal=true;
+      render();
+    };
     const backBtn = document.createElement('button');
     backBtn.textContent='Back';
     backBtn.className='px-4 py-2 rounded bg-slate-700 text-white font-semibold';
@@ -73,18 +108,21 @@ function render() {
     header.appendChild(addBtn);
     div.appendChild(header);
 
-    // Active players
-    const activePlayers = db.players.filter(p=>p.team===state.selectedTeam && p.status==='active').sort((a,b)=>a.fullName.localeCompare(b.fullName));
+    // Active players sorted by jersey number then name
+    const activePlayers = db.players
+      .filter(p=>p.team===state.selectedTeam && p.status==='active')
+      .sort((a,b)=>Number(a.jerseyNumber)-Number(b.jerseyNumber)||a.fullName.localeCompare(b.fullName));
     activePlayers.forEach(p=>{
       const pDiv = document.createElement('div');
-      pDiv.textContent = p.fullName;
+      pDiv.textContent = p.fullName + (p.jerseyNumber ? ` (#${p.jerseyNumber})` : '');
       pDiv.className='cursor-pointer px-3 py-2 border-b border-slate-700';
       pDiv.onclick = () => { state.selectedPlayer=p; state.tempPlayer={...p}; state.showEditModal=true; render(); };
       div.appendChild(pDiv);
     });
 
     // Inactive players
-    const inactivePlayers = db.players.filter(p=>p.team===state.selectedTeam && p.status==='inactive').sort((a,b)=>a.fullName.localeCompare(b.fullName));
+    const inactivePlayers = db.players.filter(p=>p.team===state.selectedTeam && p.status==='inactive')
+      .sort((a,b)=>a.fullName.localeCompare(b.fullName));
     if(inactivePlayers.length>0){
       const inactiveHeader=document.createElement('div');
       inactiveHeader.textContent='Inactive';
@@ -101,50 +139,127 @@ function render() {
     app.appendChild(div);
   }
 
-  // Edit / Add Modal
+  // Edit/Add Player Modal
   if(state.showEditModal){
     const modal=document.createElement('div');
-    modal.className='fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center';
+    modal.className='fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50';
     const content=document.createElement('div');
-    content.className='bg-slate-900 p-6 rounded-2xl max-w-md w-full flex flex-col gap-2';
+    content.className='bg-slate-900 p-6 rounded-2xl max-w-md w-full flex flex-col gap-2 relative';
+
+    // Input fields
     ['fullName','jerseyNumber','jerseySize','birthdate','parentName','parentEmail','parentPhone'].forEach(f=>{
       const input=document.createElement('input');
-      input.placeholder=f;
+      input.placeholder=placeholders[f];
       input.value=state.tempPlayer[f];
       input.className='p-2 rounded text-slate-950 w-full';
       input.oninput=(e)=>{state.tempPlayer[f]=e.target.value;};
       content.appendChild(input);
     });
+
+    // Removal Reason if inactive
+    if(state.tempPlayer.status==='inactive'){
+      const reasonInput=document.createElement('textarea');
+      reasonInput.placeholder='Reason for removal';
+      reasonInput.value = state.tempPlayer.removalReason||'';
+      reasonInput.className='p-2 rounded text-slate-950 w-full';
+      reasonInput.oninput=(e)=>{state.tempPlayer.removalReason=e.target.value;};
+      content.appendChild(reasonInput);
+    }
+
     const btns=document.createElement('div');
-    btns.className='flex justify-between mt-4 gap-2';
+    btns.className='flex flex-col mt-4 gap-2';
+
     const saveBtn=document.createElement('button');
     saveBtn.textContent='Save';
-    saveBtn.className='flex-1 px-4 py-2 bg-pantone-802c text-slate-950 rounded';
+    saveBtn.className='px-4 py-2 bg-pantone-802c text-slate-950 rounded';
     saveBtn.onclick=()=>{
+      if(!state.tempPlayer.fullName.trim()){
+        alert("Player name cannot be empty.");
+        return;
+      }
       const idx=db.players.findIndex(p=>p.id===state.tempPlayer.id);
       if(idx>=0){ db.players[idx]={...state.tempPlayer}; }
       else{ db.players.push({...state.tempPlayer}); }
       saveDb(); state.showEditModal=false; render();
     };
+
     const cancelBtn=document.createElement('button');
     cancelBtn.textContent='Cancel';
-    cancelBtn.className='flex-1 px-4 py-2 bg-slate-700 text-white rounded';
+    cancelBtn.className='px-4 py-2 bg-slate-700 text-white rounded';
     cancelBtn.onclick=()=>{state.showEditModal=false; render();};
-    const removeBtn=document.createElement('button');
-    removeBtn.textContent='Remove from Roster';
-    removeBtn.className='flex-1 px-4 py-2 bg-red-600 text-white rounded';
-    removeBtn.onclick=()=>{
-      const reason=prompt('Why is this athlete being removed?');
-      if(reason){
-        state.tempPlayer.status='inactive';
-        state.tempPlayer.removalReason=reason;
-        const idx=db.players.findIndex(p=>p.id===state.tempPlayer.id);
-        if(idx>=0){ db.players[idx]={...state.tempPlayer}; }
+
+    const inactiveBtn=document.createElement('button');
+    inactiveBtn.textContent='Mark Inactive';
+    inactiveBtn.className='px-4 py-2 bg-red-600 text-white rounded';
+    inactiveBtn.onclick=()=>{
+      if(!state.tempPlayer.removalReason){
+        alert("Please enter a reason for removal.");
+        return;
+      }
+      state.tempPlayer.status='inactive';
+      const idx=db.players.findIndex(p=>p.id===state.tempPlayer.id);
+      if(idx>=0){ db.players[idx]={...state.tempPlayer}; }
+      saveDb(); state.showEditModal=false; render();
+    };
+
+    const deleteBtn=document.createElement('button');
+    deleteBtn.textContent='Delete Permanently';
+    deleteBtn.className='px-4 py-2 bg-red-800 text-white rounded';
+    deleteBtn.onclick=()=>{
+      if(confirm("Are you sure you want to permanently delete this player?")){
+        db.players=db.players.filter(p=>p.id!==state.tempPlayer.id);
         saveDb(); state.showEditModal=false; render();
       }
     };
-    btns.appendChild(saveBtn); btns.appendChild(cancelBtn); btns.appendChild(removeBtn);
+
+    const switchBtn=document.createElement('button');
+    switchBtn.textContent='Switch Team';
+    switchBtn.className='px-4 py-2 bg-yellow-600 text-slate-950 rounded';
+    switchBtn.onclick=()=>{ state.showSwitchTeamModal=true; render(); };
+
+    btns.appendChild(saveBtn);
+    btns.appendChild(cancelBtn);
+    btns.appendChild(inactiveBtn);
+    btns.appendChild(deleteBtn);
+    btns.appendChild(switchBtn);
     content.appendChild(btns);
+    modal.appendChild(content);
+    app.appendChild(modal);
+  }
+
+  // Switch Team Modal
+  if(state.showSwitchTeamModal){
+    const modal=document.createElement('div');
+    modal.className='fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-60';
+    const content=document.createElement('div');
+    content.className='bg-slate-900 p-6 rounded-2xl max-w-sm w-full flex flex-col gap-2';
+    const header=document.createElement('div');
+    header.textContent='Select new team:';
+    header.className='text-white font-semibold mb-2';
+    content.appendChild(header);
+
+    TEAMS.filter(t=>t!==state.tempPlayer.team).forEach(team=>{
+      const btn=document.createElement('button');
+      btn.textContent=team;
+      btn.className='px-4 py-2 bg-pantone-802c text-slate-950 rounded';
+      btn.onclick=()=>{
+        state.tempPlayer.team=team;
+        const idx=db.players.findIndex(p=>p.id===state.tempPlayer.id);
+        if(idx>=0){ db.players[idx].team=team; }
+        saveDb();
+        state.showSwitchTeamModal=false;
+        state.showEditModal=false;
+        render();
+      };
+      content.appendChild(btn);
+    });
+
+    const cancelBtn=document.createElement('button');
+    cancelBtn.textContent='Cancel';
+    cancelBtn.className='px-4 py-2 bg-slate-700 text-white rounded mt-2';
+    cancelBtn.onclick=()=>{state.showSwitchTeamModal=false; render();};
+    content.appendChild(cancelBtn);
+
     modal.appendChild(content);
     app.appendChild(modal);
   }
