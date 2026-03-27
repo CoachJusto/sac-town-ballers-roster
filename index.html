@@ -27,15 +27,27 @@ let state = { screen:'splash', selectedTeam:null, selectedPlayer:null, showEditM
 function uuid(){ return 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 const placeholders = { fullName:"Player Full Name", jerseyNumber:"Jersey #", jerseySize:"Size", birthdate:"MM/DD/YYYY", parentName:"Parent Name", parentEmail:"Parent Email", parentPhone:"Parent Phone" };
 
-// Load players from Google Sheet
+// Load players from Google Sheet with error handling
 async function loadDb(){
-  const res = await fetch(SHEET_URL);
-  db.players = await res.json();
+  try {
+    const res = await fetch(SHEET_URL);
+    if(!res.ok) throw new Error('Sheet fetch failed');
+    const data = await res.json();
+    db.players = Array.isArray(data) ? data : [];
+  } catch(e){
+    console.error("Could not load sheet:", e);
+    db.players = []; // fallback to empty
+  }
 }
 
 // Save player to Google Sheet
 async function savePlayer(player){
-  await fetch(SHEET_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(player)});
+  try {
+    await fetch(SHEET_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(player)});
+  } catch(e){
+    console.error("Could not save player:", e);
+    alert("Failed to save player. Check your connection or Apps Script deployment.");
+  }
 }
 
 function render(){
