@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -11,7 +11,6 @@
     body, html { background-color: #020617 !important; margin: 0; padding: 0; min-height: 100vh; color: white; font-family: sans-serif; }
     #app { background-color: #020617 !important; min-height: 100vh; }
     
-    /* Custom Gradient for Team Buttons */
     .btn-gradient { 
       background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); 
       box-shadow: 0 4px 15px rgba(56, 255, 20, 0.2);
@@ -143,9 +142,9 @@
               <div><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Parent Phone</label><input id="det-pphone" value="${p.parentPhone || ''}" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
             </div>
             <div class="mt-8 space-y-3">
-              <button onclick="window.saveDetails()" class="w-full py-4 bg-pantone-802c text-black font-black rounded-xl uppercase tracking-widest active:scale-95 transition-transform">Save</button>
+              <button onclick="window.saveDetails()" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase tracking-widest active:scale-95 transition-transform">SAVE CHANGES</button>
               <button onclick="window.toggleStatus()" class="w-full py-4 bg-slate-800 text-slate-400 font-bold rounded-xl uppercase text-xs">${p.status === 'inactive' ? 'Restore to Roster' : 'Remove from Roster'}</button>
-              <button onclick="window.closeModals()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Close</button>
+              <button onclick="window.closeModals()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Close Without Saving</button>
             </div>
           </div>
         `;
@@ -185,6 +184,7 @@
     window.openDetails = (id) => { state.activePlayerId = id; state.view = 'details'; render(); };
     window.openPayment = (id) => { state.activePlayerId = id; state.view = 'payment'; render(); };
     window.closeModals = () => { state.view = 'list'; render(); };
+    
     window.saveDetails = () => {
       const id = state.activePlayerId;
       updatePlayer(id, {
@@ -197,12 +197,14 @@
       });
       window.closeModals();
     };
+
     window.toggleStatus = () => {
       const id = state.activePlayerId;
       const newStatus = dbData.players[id].status === 'inactive' ? 'active' : 'inactive';
       updatePlayer(id, { status: newStatus });
       window.closeModals();
     };
+    
     window.markPaid = (method) => {
       const period = `${getCurrentMonth()} ${getCurrentYear()}`;
       updatePlayer(state.activePlayerId, { lastPaymentMonth: period, paymentMethod: method });
