@@ -16,6 +16,19 @@
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
     .player-card { background: #0f172a; border: 1px solid #1e293b; }
     
+    /* Fixed size for payment bubbles */
+    .pay-status-btn {
+      width: 70px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      font-weight: 900;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
     @keyframes pulse-red {
       0% { background-color: #ef4444; }
       50% { background-color: #991b1b; }
@@ -112,10 +125,10 @@
                     </div>
                     <div class="flex flex-col items-center">
                       <p class="text-[8px] font-bold text-slate-500 uppercase mb-1">${getCurrentMonth().toUpperCase()}'S FEES</p>
-                      <button onclick="window.openPayment('${id}')" class="px-4 py-2 rounded-lg font-black text-[10px] ${isPaid ? 'bg-green-500/20 text-green-400' : 'animate-flash text-white'}">
+                      <button onclick="window.openPayment('${id}')" class="pay-status-btn ${isPaid ? 'bg-green-500/20 text-green-400' : 'animate-flash text-white'}">
                         ${isPaid ? 'PAID' : 'UNPAID'}
                       </button>
-                      ${isPaid ? `<p class="text-[8px] font-bold text-green-400/60 mt-1 uppercase">VIA ${p.paymentMethod || 'OTHER'}</p>` : ''}
+                      ${isPaid ? `<p class="text-[7px] font-bold text-green-400/60 mt-1 uppercase">VIA ${p.paymentMethod || 'OTHER'}</p>` : ''}
                     </div>
                   </div>
                 `;
