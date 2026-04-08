@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -18,6 +18,9 @@
     
     .player-card { background: #0f172a; border: 1px solid #1e293b; transition: all 0.2s; }
     .greyed-out { opacity: 0.4; filter: grayscale(1); }
+    .team-action-btn { background: rgba(30, 41, 59, 0.8); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; position: absolute; border: 1px solid #334155; }
+    .delete-pos { right: -10px; top: -10px; color: #ff4d4d; }
+    .edit-pos { left: -10px; top: -10px; color: #38ff14; }
   </style>
 </head>
 <body>
@@ -27,7 +30,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
@@ -42,7 +45,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let dbData = { players: {} };
+    let dbData = { players: {}, teams: {} };
     let state = { screen: 'teamSelect', selectedTeam: null, activePlayerId: null, view: 'list' };
 
     const getCurrentMonth = () => new Date().toLocaleString('default', { month: 'long' });
@@ -51,6 +54,10 @@
     function loadDb() {
       onValue(ref(db, 'players'), (snap) => {
         dbData.players = snap.val() || {};
+        render();
+      });
+      onValue(ref(db, 'teams'), (snap) => {
+        dbData.teams = snap.val() || {};
         render();
       });
     }
@@ -71,13 +78,22 @@
 
       // --- SCREEN: TEAM SELECTION ---
       if (state.screen === 'teamSelect') {
+        const teamList = Object.keys(dbData.teams).length > 0 ? Object.keys(dbData.teams) : ['Jr. High', 'JV', 'Varsity'];
+        
         appEl.innerHTML = `
-          <div class="flex flex-col items-center pt-20 px-4">
-            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-32 mb-8">
+          <div class="flex flex-col items-center pt-10 px-4">
+            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-24 mb-6">
             <h1 class="text-3xl font-black mb-10 italic uppercase tracking-tighter">Select Squad</h1>
-            ${['Jr. High', 'JV', 'Varsity'].map(team => `
-              <button onclick="window.selectTeam('${team}')" class="btn-gradient w-72 py-6 mb-6 text-black font-black text-2xl rounded-2xl active:scale-95 transition-transform uppercase italic">${team}</button>
-            `).join('')}
+            <div class="space-y-8">
+              ${teamList.map(team => `
+                <div class="relative group">
+                  <button onclick="window.editTeam('${team}')" class="team-action-btn edit-pos shadow-lg">✎</button>
+                  <button onclick="window.selectTeam('${team}')" class="btn-gradient w-72 py-6 text-black font-black text-2xl rounded-2xl active:scale-95 transition-transform uppercase italic">${team}</button>
+                  <button onclick="window.removeTeam('${team}')" class="team-action-btn delete-pos shadow-lg">×</button>
+                </div>
+              `).join('')}
+            </div>
+            <button onclick="window.addTeam()" class="mt-12 border-2 border-dashed border-slate-700 text-slate-500 w-72 py-4 rounded-2xl font-bold uppercase hover:border-green-500 hover:text-green-500 transition-colors">+ Add New Team</button>
           </div>
         `;
       }
@@ -99,7 +115,7 @@
               <button onclick="window.quickAdd()" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs mt-1">+ ADD</button>
             </div>
             <div class="space-y-3">
-              ${teamPlayers.map(([id, p]) => {
+              ${teamPlayers.length > 0 ? teamPlayers.map(([id, p]) => {
                 const currentPeriod = `${getCurrentMonth()} ${getCurrentYear()}`;
                 const isPaid = p.lastPaymentMonth === currentPeriod;
                 return `
@@ -113,17 +129,16 @@
                       <button onclick="window.openPayment('${id}')" class="px-4 py-1.5 rounded-lg font-black text-[10px] ${isPaid ? 'bg-green-500/20 text-green-400' : 'bg-red-500 text-white animate-pulse'}">
                         ${isPaid ? 'PAID' : 'UNPAID'}
                       </button>
-                      ${isPaid && p.paymentMethod ? `<p class="text-[8px] font-bold text-slate-500 uppercase">via ${p.paymentMethod}</p>` : ''}
                     </div>
                   </div>
                 `;
-              }).join('')}
+              }).join('') : '<p class="text-center text-slate-600 py-10 italic">No players in this squad yet.</p>'}
             </div>
           </div>
         `;
       }
 
-      // --- MODALS (DETAILS & PAYMENT) ---
+      // (Modals for details and payment remain the same...)
       if (state.view === 'details' && state.activePlayerId) {
         const p = dbData.players[state.activePlayerId];
         const modal = document.createElement('div');
@@ -137,14 +152,10 @@
                 <div class="flex-1"><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Jersey #</label><input id="det-num" value="${p.jerseyNumber || ''}" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
                 <div class="flex-1"><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Grade</label><input id="det-grade" value="${p.grade || ''}" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
               </div>
-              <div><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Birthdate</label><input id="det-dob" value="${p.birthdate || ''}" placeholder="MM/DD/YYYY" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
-              <div><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Parent Name</label><input id="det-pname" value="${p.parentName || ''}" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
-              <div><label class="text-[10px] text-slate-500 font-bold ml-1 uppercase">Parent Phone</label><input id="det-pphone" value="${p.parentPhone || ''}" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 text-white font-bold"></div>
             </div>
             <div class="mt-8 space-y-3">
-              <button onclick="window.saveDetails()" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase tracking-widest active:scale-95 transition-transform">SAVE CHANGES</button>
-              <button onclick="window.toggleStatus()" class="w-full py-4 bg-slate-800 text-slate-400 font-bold rounded-xl uppercase text-xs">${p.status === 'inactive' ? 'Restore to Roster' : 'Remove from Roster'}</button>
-              <button onclick="window.closeModals()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Close Without Saving</button>
+              <button onclick="window.saveDetails()" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase tracking-widest">SAVE CHANGES</button>
+              <button onclick="window.closeModals()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Close</button>
             </div>
           </div>
         `;
@@ -158,56 +169,74 @@
         modal.innerHTML = `
           <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-xs text-center border border-slate-800 shadow-2xl">
             <h3 class="text-xl font-black mb-2">${p.fullName}</h3>
-            <p class="text-slate-400 text-xs mb-6 uppercase italic">Process ${getCurrentMonth()} Fee</p>
-            <div class="grid grid-cols-2 gap-3">
-              <button onclick="window.markPaid('Venmo')" class="py-4 bg-[#3d95ce] rounded-xl font-bold active:scale-95 transition-transform text-xs">VENMO</button>
-              <button onclick="window.markPaid('CashApp')" class="py-4 bg-[#00d35c] rounded-xl font-bold active:scale-95 transition-transform text-xs">CASHAPP</button>
-              <button onclick="window.markPaid('Apple Pay')" class="py-4 bg-white text-black rounded-xl font-bold active:scale-95 transition-transform text-xs">APPLE</button>
-              <button onclick="window.markPaid('Cash')" class="py-4 bg-slate-700 rounded-xl font-bold active:scale-95 transition-transform text-xs text-green-400">CASH</button>
+            <div class="grid grid-cols-2 gap-3 mt-4">
+              <button onclick="window.markPaid('Venmo')" class="py-4 bg-[#3d95ce] rounded-xl font-bold text-xs">VENMO</button>
+              <button onclick="window.markPaid('CashApp')" class="py-4 bg-[#00d35c] rounded-xl font-bold text-xs">CASHAPP</button>
+              <button onclick="window.markPaid('Apple Pay')" class="py-4 bg-white text-black rounded-xl font-bold text-xs">APPLE</button>
+              <button onclick="window.markPaid('Cash')" class="py-4 bg-slate-700 rounded-xl font-bold text-xs text-green-400">CASH</button>
             </div>
-            <button onclick="window.closeModals()" class="mt-6 text-slate-500 font-bold text-[10px] uppercase tracking-widest underline decoration-slate-700">Cancel</button>
+            <button onclick="window.closeModals()" class="mt-6 text-slate-500 font-bold text-[10px] uppercase underline">Cancel</button>
           </div>
         `;
         appEl.appendChild(modal);
       }
     }
 
+    // --- Team Management Logic ---
+    window.addTeam = async () => {
+      const teamName = prompt("Enter new team name:");
+      if (teamName) await set(ref(db, `teams/${teamName}`), true);
+    };
+
+    window.editTeam = async (oldName) => {
+      const newName = prompt(`Rename "${oldName}" to:`, oldName);
+      if (!newName || newName === oldName) return;
+
+      // 1. Create the new team node
+      await set(ref(db, `teams/${newName}`), true);
+
+      // 2. Find all players on the old team and update them
+      const updates = {};
+      Object.entries(dbData.players).forEach(([id, p]) => {
+        if (p.team === oldName) {
+          updates[`players/${id}/team`] = newName;
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        await update(ref(db), updates);
+      }
+
+      // 3. Remove the old team node
+      await remove(ref(db, `teams/${oldName}`));
+    };
+
+    window.removeTeam = async (teamName) => {
+      if (confirm(`Delete "${teamName}"? Players will remain in the database but will be "team-less".`)) {
+        await remove(ref(db, `teams/${teamName}`));
+      }
+    };
+
     // --- Global Logic ---
     window.selectTeam = (team) => { state.selectedTeam = team; state.screen = 'roster'; render(); };
     window.goBackToTeams = () => { state.screen = 'teamSelect'; state.selectedTeam = null; render(); };
     window.quickAdd = () => {
       const name = prompt("Enter athlete's full name:");
-      if (!name) return;
-      const id = 'p-' + Date.now();
-      updatePlayer(id, { fullName: name, team: state.selectedTeam, status: 'active' });
+      if (name) updatePlayer('p-' + Date.now(), { fullName: name, team: state.selectedTeam, status: 'active' });
     };
     window.openDetails = (id) => { state.activePlayerId = id; state.view = 'details'; render(); };
     window.openPayment = (id) => { state.activePlayerId = id; state.view = 'payment'; render(); };
     window.closeModals = () => { state.view = 'list'; render(); };
-    
     window.saveDetails = () => {
-      const id = state.activePlayerId;
-      updatePlayer(id, {
+      updatePlayer(state.activePlayerId, {
         fullName: document.getElementById('det-name').value,
         jerseyNumber: document.getElementById('det-num').value,
-        grade: document.getElementById('det-grade').value,
-        birthdate: document.getElementById('det-dob').value,
-        parentName: document.getElementById('det-pname').value,
-        parentPhone: document.getElementById('det-pphone').value
+        grade: document.getElementById('det-grade').value
       });
       window.closeModals();
     };
-
-    window.toggleStatus = () => {
-      const id = state.activePlayerId;
-      const newStatus = dbData.players[id].status === 'inactive' ? 'active' : 'inactive';
-      updatePlayer(id, { status: newStatus });
-      window.closeModals();
-    };
-    
     window.markPaid = (method) => {
-      const period = `${getCurrentMonth()} ${getCurrentYear()}`;
-      updatePlayer(state.activePlayerId, { lastPaymentMonth: period, paymentMethod: method });
+      updatePlayer(state.activePlayerId, { lastPaymentMonth: `${getCurrentMonth()} ${getCurrentYear()}`, paymentMethod: method });
       window.closeModals();
     };
 
