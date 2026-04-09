@@ -1,218 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Ballers Manager Pro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-  <style>
-    body, html { background-color: #020617; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; margin: 0; font-size: 18px; }
-    #app { height: 100%; display: flex; flex-direction: column; }
-    .btn-main { width: 280px; padding: 1.25rem; border-radius: 1rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; letter-spacing: 0.05em; }
-    .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
-    .btn-outline { border: 2px dashed #334155; color: #94a3b8; }
-    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 1rem 1.25rem; border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; }
-    .profile-modal { background: #0f172a; border: 2px solid #334155; width: 92%; max-width: 380px; border-radius: 1rem; padding: 1.25rem; }
-    input, select { background: #1e293b !important; border: 1px solid #475569 !important; color: white !important; padding: 0.5rem 0.75rem !important; border-radius: 0.4rem !important; width: 100%; height: 2.5rem; }
-    label { font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; display: block; }
-    @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
-    .animate-blink { animation: blink-red 1s infinite; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Ballers Manager Pro</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+body, html { background:#020617; color:white; height:100vh; margin:0; overflow:hidden; }
+#app { height:100%; display:flex; flex-direction:column; }
+
+.btn-main { width:280px; padding:1.25rem; border-radius:1rem; font-weight:900; }
+.btn-gradient { background:linear-gradient(135deg,#38ff14,#028e3a); color:black; }
+
+.player-card { background:#0f172a; border:1px solid #1e293b; padding:1rem; border-radius:.75rem; cursor:pointer; }
+
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.9); display:flex; align-items:center; justify-content:center; z-index:100; }
+
+.animate-blink { animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{background:#ef4444;}50%{background:#7f1d1d;} }
+</style>
 </head>
+
 <body>
-  <div id="app"></div>
+<div id="app"></div>
 
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
-      authDomain: "sac-town-ballers-roster.firebaseapp.com",
-      databaseURL: "https://sac-town-ballers-roster-default-rtdb.firebaseio.com/",
-      projectId: "sac-town-ballers-roster",
-    };
+<script>
+/* ------------------ FIREBASE ------------------ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
+  authDomain: "sac-town-ballers-roster.firebaseapp.com",
+  databaseURL: "https://sac-town-ballers-roster-default-rtdb.firebaseio.com/",
+  projectId: "sac-town-ballers-roster",
+};
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-    let dbData = { players: {}, teams: {} };
-    let state = { screen: 'main', selectedTeam: null };
+/* ------------------ STATE ------------------ */
+let dbData = { players:{}, teams:{} };
+let state = { screen:'main', selectedTeam:null };
 
-    db.ref('/').on('value', (snap) => {
-      const data = snap.val() || {};
-      dbData.players = data.players || {};
-      dbData.teams = data.teams || { "JV": true, "Varsity": true };
-      render();
+/* ------------------ LISTENER ------------------ */
+db.ref('/').on('value', snap => {
+  const data = snap.val() || {};
+  dbData.players = data.players || {};
+  dbData.teams = data.teams || { JV:true, Varsity:true };
+  render();
+});
+
+/* ------------------ RENDER ------------------ */
+function render(){
+  const app = document.getElementById('app');
+
+  if(state.screen === 'main'){
+    const teams = Object.keys(dbData.teams);
+
+    app.innerHTML = `
+      <div class="flex flex-col items-center pt-12">
+        <button onclick="addTeam()" class="absolute top-4 right-4">+ TEAM</button>
+        <div class="flex flex-col gap-6 mt-10">
+          ${teams.map(t=>`<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
+          <button onclick="go('Tryouts')" class="btn-main border">TRYOUTS</button>
+          <button onclick="go('Unrostered')" class="text-sm mt-6">Unrostered</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const isT = state.selectedTeam === 'Tryouts';
+  const isU = state.selectedTeam === 'Unrostered';
+
+  const list = Object.entries(dbData.players)
+    .filter(([id,p])=>p.team === state.selectedTeam)
+    .sort((a,b)=>{
+      if(isT) return new Date(b[1].signUpDate||0) - new Date(a[1].signUpDate||0);
+      return (a[1].fullName||'').localeCompare(b[1].fullName||'');
     });
 
-    function render() {
-      const app = document.getElementById('app');
-      app.innerHTML = '';
+  app.innerHTML = `
+    <div class="p-5 flex flex-col h-full">
+      <div class="flex justify-between mb-6">
+        <button onclick="goBack()">Back</button>
+        <h2>${state.selectedTeam}</h2>
+        <div>
+          ${isT ? `<button onclick="confirmClear()">CLEAR</button>` : ''}
+          ${isT ? `<button onclick="syncSheet()">SYNC</button>` : ''}
+        </div>
+      </div>
 
-      if (state.screen === 'main') {
-        const teams = Object.keys(dbData.teams);
-        app.innerHTML = `
-          <div class="flex flex-col items-center pt-12 px-4 w-full relative">
-            <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[14px] font-bold bg-white/10 px-5 py-2 rounded">+ TEAM</button>
-            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-28 mb-12">
-            <div class="flex flex-col gap-6">
-              ${teams.map(t => `<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
-              <button onclick="go('Tryouts')" class="btn-main btn-outline">TRYOUTS</button>
-              <button onclick="go('Unrostered')" class="mt-8 text-[13px] font-bold text-slate-400 uppercase tracking-[0.2em] self-center">View Unrostered</button>
-            </div>
-          </div>
-        `;
-      } else {
-        const isT = state.selectedTeam === 'Tryouts';
-        const isU = state.selectedTeam === 'Unrostered';
-        
-        const list = Object.entries(dbData.players)
-          .filter(([id, p]) => p.team === state.selectedTeam)
-          .sort((a, b) => {
-            if (isT) return new Date(b[1].signUpDate || 0) - new Date(a[1].signUpDate || 0);
-            return (a[1].fullName || "").localeCompare(b[1].fullName || "");
-          });
-
-        app.innerHTML = `
-          <div class="p-5 flex flex-col h-full">
-            <div class="flex justify-between items-center mb-8">
-              <button onclick="goBack()" class="text-slate-400 text-[14px] font-black uppercase">← Back</button>
-              <h2 class="text-3xl font-black italic uppercase text-center tracking-tighter">${state.selectedTeam}</h2>
-              <div class="flex gap-4">
-                ${isT ? `<button onclick="confirmAction('clear')" class="text-red-500 text-[14px] font-black uppercase">CLEAR</button>` : ''}
-                ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[14px] font-black uppercase">SYNC</button>` : ''}
+      <div class="flex-1 overflow-y-auto space-y-2">
+        ${list.length ? list.map(([id,p])=>`
+          <div class="player-card flex justify-between" onclick="openProfile('${id}')">
+            <div>
+              <div>${p.fullName || 'Unnamed Player'}</div>
+              <div class="text-xs text-slate-400">
+                ${isT
+                  ? `DIV: ${p.grade||'N/A'} • EXP: ${p.experience||'N/A'}`
+                  : `#${p.jersey||'00'} • ${p.pos||'POS'}`
+                }
               </div>
             </div>
-            <div class="flex-1 overflow-y-auto space-y-3 pb-24">
-              ${list.length ? list.map(([id, p]) => `
-                <div class="player-card flex justify-between items-center" onclick="openProfile('${id}')">
-                  <div class="flex-1">
-                    <div class="font-black uppercase text-lg leading-tight">${p.fullName}</div>
-                    <div class="text-[12px] text-slate-400 font-bold uppercase mt-2">
-                      ${isT ? `DIV: ${p.grade || 'N/A'} • EXP: ${p.experience || 'N/A'}` : `#${p.jersey || '00'} • ${p.pos || 'POS'} • Age: ${p.age || 'N/A'}`}
-                    </div>
-                  </div>
-                  <div>
-                    ${(!isT && !isU) ? `<button onclick="event.stopPropagation();payChoice('${id}')" class="text-[12px] font-black h-10 px-4 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">${p.paid ? 'PAID' : 'UNPAID'}</button>` : ''}
-                  </div>
-                </div>
-              `).join('') : '<p class="text-center text-slate-600 mt-10 font-bold uppercase">No players</p>'}
-            </div>
+
+            ${(!isT && !isU) ? `
+              <button onclick="payChoice(event,'${id}')"
+              class="px-3 ${p.paid ? 'bg-green-500' : 'animate-blink'}">
+                ${p.paid ? 'PAID' : 'UNPAID'}
+              </button>
+            `:''}
           </div>
-        `;
-      }
-    }
+        `).join('') : `<p>No Players</p>`}
+      </div>
+    </div>
+  `;
+}
 
-    window.goBack = () => { state.screen = 'main'; render(); };
-    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
-    
-    window.openProfile = (id) => {
-      const p = dbData.players[id];
-      if(!p) return;
-      const isT = p.team === 'Tryouts';
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50';
-      modal.innerHTML = `
-        <div class="profile-modal">
-          <div class="flex justify-between items-start mb-4">
-            <div class="font-black uppercase text-xl italic">${p.fullName}</div>
-            ${isT ? `<button onclick="showTeamPicker('${id}')" class="text-[10px] font-black bg-white text-black px-3 py-1 rounded animate-blink">MIGRATE</button>` : ''}
-          </div>
-          <div class="grid grid-cols-2 gap-4 mb-6">
-            ${isT ? `
-              <div><label>Age</label><input value="${p.age || 'N/A'}" disabled class="opacity-50"></div>
-              <div><label>Division</label><input id="p-grade" value="${p.grade || 'N/A'}"></div>
-              <div class="col-span-2"><label>Exp</label><input id="p-exp" value="${p.experience || 'None'}"></div>
-            ` : `
-              <div><label>Jersey #</label><input id="p-num" value="${p.jersey || ''}"></div>
-              <div><label>Pos</label><input id="p-pos" value="${p.pos || ''}"></div>
-              <div class="col-span-2"><label>Experience</label><input id="p-exp" value="${p.experience || ''}"></div>
-              <div class="col-span-2"><label>Parent Phone</label><input id="p-phone" value="${p.parentPhone || ''}"></div>
-            `}
-          </div>
-          <div class="flex gap-4">
-            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-4 bg-slate-800 text-[12px] font-black uppercase rounded-xl">Cancel</button>
-            <button onclick="savePlayer('${id}')" class="flex-1 py-4 bg-green-500 text-black text-[12px] font-black uppercase rounded-xl">Save</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    };
+/* ------------------ NAV ------------------ */
+function go(t){ state.selectedTeam=t; state.screen='roster'; render(); }
+function goBack(){ state.screen='main'; render(); }
 
-    window.savePlayer = (id) => {
-      const updates = {};
-      if(document.getElementById('p-grade')) updates.grade = document.getElementById('p-grade').value;
-      if(document.getElementById('p-exp')) updates.experience = document.getElementById('p-exp').value;
-      if(document.getElementById('p-num')) updates.jersey = document.getElementById('p-num').value;
-      if(document.getElementById('p-pos')) updates.pos = document.getElementById('p-pos').value;
-      if(document.getElementById('p-phone')) updates.parentPhone = document.getElementById('p-phone').value;
-      
-      db.ref(`players/${id}`).update(updates);
-      document.querySelectorAll('.fixed').forEach(m => m.remove());
-    };
+/* ------------------ PROFILE ------------------ */
+function openProfile(id){
+  const p = dbData.players[id];
+  if(!p) return;
 
-    window.showTeamPicker = (id) => {
-      const teams = Object.keys(dbData.teams);
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[60]';
-      modal.innerHTML = `
-        <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-          <p class="text-slate-400 font-black uppercase text-[12px] mb-6 tracking-widest">Select Team</p>
-          <div class="flex flex-wrap gap-4 justify-center">
-            ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center font-black italic uppercase border border-slate-700">${t}</button>`).join('')}
-            <button onclick="movePlayer('${id}', 'Unrostered')" class="w-full py-3 bg-slate-800/50 text-[10px] font-black uppercase rounded-lg">Move to Unrostered</button>
-          </div>
-          <button onclick="this.closest('.fixed').remove()" class="mt-8 text-slate-500 font-bold uppercase text-[12px]">Cancel</button>
-        </div>
-      `;
-      document.body.appendChild(modal);
-    };
+  const modal = document.createElement('div');
+  modal.className='modal';
 
-    window.movePlayer = (id, team) => {
-      db.ref(`players/${id}`).update({ team: team });
-      document.querySelectorAll('.fixed').forEach(m => m.remove());
-    };
+  modal.innerHTML = `
+    <div class="bg-slate-900 p-6 rounded">
+      <h2>${p.fullName}</h2>
 
-    window.payChoice = (id) => {
-      const p = dbData.players[id];
-      db.ref(`players/${id}`).update({ paid: !p.paid });
-    };
+      <input id="edit-exp" value="${p.experience||''}" placeholder="Experience">
 
-    window.addTeam = () => {
-      const name = prompt("Team Name:");
-      if(name) db.ref(`teams/${name}`).set(true);
-    };
+      <div class="flex gap-2 mt-4">
+        <button onclick="closeModal()">Cancel</button>
+        <button onclick="saveChanges('${id}')">Save</button>
+      </div>
+    </div>
+  `;
 
-    window.confirmAction = (type) => {
-      if(confirm("Clear all tryout players?")) {
-        Object.entries(dbData.players).forEach(([id, p]) => {
-          if(p.team === 'Tryouts') db.ref(`players/${id}`).remove();
+  document.body.appendChild(modal);
+}
+
+function closeModal(){
+  document.querySelectorAll('.modal').forEach(m=>m.remove());
+}
+
+/* ------------------ SAVE ------------------ */
+function saveChanges(id){
+  const exp = document.getElementById('edit-exp').value;
+  db.ref(`players/${id}`).update({ experience:exp });
+  closeModal();
+}
+
+/* ------------------ PAY ------------------ */
+function payChoice(e,id){
+  e.stopPropagation();
+  const p = dbData.players[id];
+  db.ref(`players/${id}`).update({ paid:!p.paid });
+}
+
+/* ------------------ TEAM ------------------ */
+function addTeam(){
+  const name = prompt("Team name?");
+  if(name) db.ref(`teams/${name}`).set(true);
+}
+
+/* ------------------ CLEAR ------------------ */
+function confirmClear(){
+  const confirmText = prompt("Type DELETE to confirm");
+  if(confirmText === "DELETE"){
+    Object.entries(dbData.players).forEach(([id,p])=>{
+      if(p.team==='Tryouts') db.ref(`players/${id}`).remove();
+    });
+  }
+}
+
+/* ------------------ SYNC ------------------ */
+async function syncSheet(){
+  const url = "YOUR CSV URL";
+
+  try{
+    const res = await fetch(url);
+    const text = await res.text();
+
+    const rows = text.split(/\r?\n/).slice(1);
+
+    rows.forEach(row=>{
+      const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      const name = c[5]?.replace(/"/g,'').trim();
+
+      if(!name) return;
+
+      const exists = Object.values(dbData.players)
+        .some(p=>p.fullName===name);
+
+      if(!exists){
+        db.ref('players').push({
+          fullName:name,
+          team:'Tryouts',
+          signUpDate:new Date().toISOString()
         });
       }
-    };
+    });
 
-    window.syncSheet = async () => {
-      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
-      try {
-        const res = await fetch(csvUrl);
-        const text = await res.text();
-        const rows = text.split('\n').slice(1);
-        rows.forEach(row => {
-          const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          const name = c[5]?.replace(/"/g, '').trim(); 
-          if (name) {
-            db.ref('players').push({
-              fullName: name,
-              signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
-              age: c[6]?.replace(/"/g, '') || 'N/A',
-              experience: c[7]?.replace(/"/g, '') || 'None',
-              grade: c[9]?.replace(/"/g, '') || 'N/A',
-              team: 'Tryouts'
-            });
-          }
-        });
-      } catch (e) { console.error("Sync Error"); }
-    };
-  </script>
+  }catch(e){
+    alert("Sync failed");
+  }
+}
+</script>
 </body>
 </html>
