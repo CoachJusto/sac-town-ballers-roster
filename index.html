@@ -250,4 +250,64 @@
                     </select>
                 </div>
                 <div class="col-span-2"><label>Birthdate</label><input id="p-dob" type="date" value="${p.dob || ''}"></div>
-                <div class="col-span-2"><label>Parent Name</label>
+                <div class="col-span-2"><label>Parent Name</label><input id="p-pname" value="${p.parentName || ''}"></div>
+                <div class="col-span-2 space-y-4">
+                    <div><label>Parent Phone</label><input id="p-phone" value="${p.parentPhone || ''}"></div>
+                    <div><label>Parent Email</label><input id="p-email" value="${p.parentEmail || ''}"></div>
+                </div>
+            `}
+          </div>
+
+          <div class="mt-8 flex gap-4">
+            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-4 text-[13px] font-bold text-slate-500 uppercase">Cancel</button>
+            <button onclick="saveProfile('${id}')" class="flex-1 py-4 bg-green-500 text-black font-black rounded-xl text-[13px] uppercase">Save Changes</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    };
+
+    window.saveProfile = (id) => {
+        const updates = {
+            grade: document.getElementById('p-grade').value,
+            experience: document.getElementById('p-exp').value
+        };
+        
+        if (document.getElementById('p-dob')) {
+            updates.dob = document.getElementById('p-dob').value;
+            updates.age = calcAge(updates.dob) !== "N/A" ? calcAge(updates.dob) : (dbData.players[id].age || "N/A");
+        }
+        
+        if (document.getElementById('p-num')) updates.jersey = document.getElementById('p-num').value;
+        if (document.getElementById('p-pos')) updates.pos = document.getElementById('p-pos').value;
+        if (document.getElementById('p-pname')) updates.parentName = document.getElementById('p-pname').value;
+        if (document.getElementById('p-phone')) updates.parentPhone = document.getElementById('p-phone').value;
+        if (document.getElementById('p-email')) updates.parentEmail = document.getElementById('p-email').value;
+
+        update(ref(db, `players/${id}`), updates);
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
+    };
+
+    window.movePlayer = (id, team) => {
+        update(ref(db, `players/${id}`), { team: team, detailsLocked: false });
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
+    };
+
+    window.payChoice = (id) => {
+        const p = dbData.players[id];
+        update(ref(db, `players/${id}`), { paid: !p.paid });
+    };
+
+    window.addTeam = () => {
+        const name = prompt("Enter New Team Name:");
+        if(name) set(ref(db, `teams/${name}`), true);
+    };
+
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+    window.state = state;
+    window.render = render;
+
+    init();
+  </script>
+</body>
+</html>
