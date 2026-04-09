@@ -259,4 +259,40 @@
             fullName: document.getElementById('p-name').value,
             grade: document.getElementById('p-grade').value,
             dob: document.getElementById('p-dob').value,
-            age: calcAge(document.getElementById('p-dob').value) !== "
+            age: calcAge(document.getElementById('p-dob').value) !== "N/A" ? calcAge(document.getElementById('p-dob').value) : (dbData.players[id].age || "N/A"),
+            experience: document.getElementById('p-exp').value
+        };
+        
+        if (document.getElementById('p-num')) updates.jersey = document.getElementById('p-num').value;
+        if (document.getElementById('p-pos')) updates.pos = document.getElementById('p-pos').value;
+        if (document.getElementById('p-pname')) updates.parentName = document.getElementById('p-pname').value;
+        if (document.getElementById('p-phone')) updates.parentPhone = document.getElementById('p-phone').value;
+        if (document.getElementById('p-email')) updates.parentEmail = document.getElementById('p-email').value;
+
+        update(ref(db, `players/${id}`), updates);
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
+    };
+
+    window.movePlayer = (id, team) => {
+        update(ref(db, `players/${id}`), { team: team, detailsLocked: false });
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
+    };
+
+    window.payChoice = (id) => {
+        const p = dbData.players[id];
+        update(ref(db, `players/${id}`), { paid: !p.paid });
+    };
+
+    window.addTeam = () => {
+        const name = prompt("Team Name:");
+        if(name) set(ref(db, `teams/${name}`), true);
+    };
+
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+    window.state = state;
+    window.render = render;
+
+    init();
+  </script>
+</body>
+</html>
