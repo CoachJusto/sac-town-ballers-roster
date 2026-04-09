@@ -7,17 +7,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { --pantone-802c: #00FF6C; }
-    body, html { background-color: #020617; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+    body, html { background-color: #020617; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; margin: 0; font-size: 16px; }
     #app { height: 100%; display: flex; flex-direction: column; }
     
-    .btn-main { width: 240px; padding: 1rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+    .btn-main { width: 260px; padding: 1.1rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
-    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.5rem 0.75rem; border-radius: 0.5rem; }
+    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.6rem 0.85rem; border-radius: 0.5rem; }
     
-    .profile-modal { background: #0f172a; border: 1px solid #334155; width: 85%; max-width: 320px; border-radius: 0.75rem; padding: 0.75rem; }
-    input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; padding: 0.15rem 0.3rem !important; border-radius: 0.2rem !important; font-size: 0.75rem !important; height: 1.4rem !important; width: 100%; }
-    label { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 1px; display: block; }
+    .profile-modal { background: #0f172a; border: 1px solid #334155; width: 90%; max-width: 340px; border-radius: 0.75rem; padding: 1rem; }
+    input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; padding: 0.25rem 0.5rem !important; border-radius: 0.25rem !important; font-size: 0.85rem !important; height: 1.8rem !important; width: 100%; }
+    label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px; display: block; tracking-wider; }
     
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
@@ -42,12 +42,10 @@
     let dbData = { players: {}, teams: {} };
     let state = { screen: 'main', selectedTeam: null };
 
-    // Formats date to "April 22, 2026" and strips time components
     const formatFullDate = (dateStr) => {
         if (!dateStr) return "N/A";
-        // Handle cases where time might be appended with a space or T
         const cleanDateStr = dateStr.split(/[ T]/)[0]; 
-        const date = new Date(cleanDateStr + "T12:00:00"); // Force noon to avoid timezone shifts
+        const date = new Date(cleanDateStr + "T12:00:00");
         if (isNaN(date)) return dateStr;
         return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     };
@@ -102,12 +100,12 @@
         const teams = Object.keys(dbData.teams);
         app.innerHTML = `
           <div class="flex flex-col items-center pt-12 px-4 w-full relative">
-            <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[10px] font-bold bg-white/10 px-3 py-1 rounded">+ TEAM</button>
-            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-10">
-            <div class="flex flex-col gap-4">
+            <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[12px] font-bold bg-white/10 px-4 py-1.5 rounded">+ TEAM</button>
+            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-24 mb-10">
+            <div class="flex flex-col gap-5">
               ${teams.map(t => `<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
               <button onclick="go('Tryouts')" class="btn-main btn-outline">TRYOUTS</button>
-              <button onclick="go('Unrostered')" class="mt-4 text-[10px] font-bold text-slate-600 uppercase tracking-widest self-center">View Unrostered</button>
+              <button onclick="go('Unrostered')" class="mt-6 text-[11px] font-bold text-slate-500 uppercase tracking-widest self-center">View Unrostered</button>
             </div>
           </div>
         `;
@@ -121,26 +119,26 @@
         app.innerHTML = `
           <div class="p-4 flex flex-col h-full">
             <div class="flex justify-between items-center mb-6">
-              <button onclick="window.state.screen='main';window.render()" class="text-slate-500 text-[10px] font-black uppercase">← Back</button>
-              <h2 class="text-xl font-black italic uppercase text-center">${state.selectedTeam}</h2>
+              <button onclick="window.state.screen='main';window.render()" class="text-slate-500 text-[12px] font-black uppercase">← Back</button>
+              <h2 class="text-2xl font-black italic uppercase text-center tracking-tighter">${state.selectedTeam}</h2>
               <div class="flex gap-4">
-                ${isT ? `<button onclick="window.confirmAction('clear')" class="text-red-500 text-[10px] font-black uppercase">CLEAR</button>` : ''}
-                ${isT ? `<button onclick="window.confirmAction('sync')" class="text-green-400 text-[10px] font-black uppercase">SYNC</button>` : ''}
+                ${isT ? `<button onclick="window.confirmAction('clear')" class="text-red-500 text-[12px] font-black uppercase">CLEAR</button>` : ''}
+                ${isT ? `<button onclick="window.confirmAction('sync')" class="text-green-400 text-[12px] font-black uppercase">SYNC</button>` : ''}
               </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto space-y-1.5 pb-20">
+            <div class="flex-1 overflow-y-auto space-y-2 pb-20">
               ${list.map(([id, p]) => `
                 <div class="player-card flex justify-between items-center cursor-pointer" onclick="openProfile('${id}')">
                   <div class="flex-1">
-                    <div class="font-black uppercase text-xs leading-tight">${p.fullName}</div>
-                    <div class="text-[8px] text-slate-500 font-bold uppercase">
+                    <div class="font-black uppercase text-sm leading-tight">${p.fullName}</div>
+                    <div class="text-[10px] text-slate-500 font-bold uppercase mt-1">
                         ${isT ? `Signed: ${formatFullDate(p.signUpDate)} • Age: ${p.age}` : `#${p.jersey || '00'} • ${p.pos || 'POS'} • Age: ${p.age || calcAge(p.dob)}`}
                     </div>
                   </div>
                   <div>
                     ${(!isT && !isU) ? `
-                      <button onclick="event.stopPropagation();payChoice('${id}')" class="text-[8px] font-black h-6 px-2 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">
+                      <button onclick="event.stopPropagation();payChoice('${id}')" class="text-[10px] font-black h-8 px-3 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">
                         ${p.paid ? `PAID` : 'UNPAID'}
                       </button>` : ''
                     }
@@ -159,10 +157,10 @@
         modal.className = 'fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-6';
         modal.innerHTML = `
             <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-                <h3 class="text-lg font-black mb-6 uppercase italic text-white">${isSync ? 'Sync Tryout Data?' : 'Clear all players?'}</h3>
+                <h3 class="text-xl font-black mb-6 uppercase italic text-white">${isSync ? 'Sync Tryout Data?' : 'Clear all players?'}</h3>
                 <div class="flex flex-col gap-3">
-                    <button id="confirmBtn" class="py-4 bg-white text-black font-black uppercase rounded-xl text-xs">YES</button>
-                    <button onclick="this.closest('.fixed').remove()" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl text-xs">CANCEL</button>
+                    <button id="confirmBtn" class="py-4 bg-white text-black font-black uppercase rounded-xl text-sm">YES</button>
+                    <button onclick="this.closest('.fixed').remove()" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl text-sm">CANCEL</button>
                 </div>
             </div>
         `;
@@ -186,9 +184,9 @@
         modal.innerHTML = `
             <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs text-center border border-slate-800">
                 <div class="flex flex-col gap-3">
-                    <button onclick="teamBubbles('${id}')" class="py-4 bg-white text-black font-black uppercase rounded-xl text-xs">MOVE TO ROSTER</button>
-                    <button onclick="movePlayer('${id}', 'Unrostered')" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl text-xs">UNROSTER</button>
-                    <button onclick="this.closest('.fixed').remove()" class="mt-4 text-[10px] font-bold text-slate-500">CANCEL</button>
+                    <button onclick="teamBubbles('${id}')" class="py-4 bg-white text-black font-black uppercase rounded-xl text-sm">MOVE TO ROSTER</button>
+                    <button onclick="movePlayer('${id}', 'Unrostered')" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl text-sm">UNROSTER</button>
+                    <button onclick="this.closest('.fixed').remove()" class="mt-4 text-[12px] font-bold text-slate-500 uppercase">CANCEL</button>
                 </div>
             </div>
         `;
@@ -201,11 +199,11 @@
         modal.className = 'fixed inset-0 bg-black/95 z-[120] flex items-center justify-center p-6';
         modal.innerHTML = `
             <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs border border-slate-800 text-center">
-                <p class="text-[10px] font-bold mb-6 uppercase text-slate-500">Assign Squad</p>
+                <p class="text-[12px] font-bold mb-6 uppercase text-slate-500">Assign Squad</p>
                 <div class="flex flex-wrap justify-center gap-4">
-                    ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-[9px] font-black uppercase italic border border-slate-700">${t}</button>`).join('')}
+                    ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="w-18 h-18 bg-slate-800 rounded-full flex items-center justify-center text-[11px] font-black uppercase italic border border-slate-700">${t}</button>`).join('')}
                 </div>
-                <button onclick="this.closest('.fixed').remove()" class="mt-8 text-[10px] font-bold text-slate-500">CANCEL</button>
+                <button onclick="this.closest('.fixed').remove()" class="mt-8 text-[12px] font-bold text-slate-500 uppercase">CANCEL</button>
             </div>
         `;
         document.body.appendChild(modal);
@@ -219,20 +217,20 @@
       modal.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
       modal.innerHTML = `
         <div class="profile-modal">
-          <div class="flex justify-between items-center mb-2">
-            <h2 class="text-[10px] font-black uppercase italic">Player Profile</h2>
-            ${isT ? `<button onclick="migrateChoice('${id}')" class="text-[8px] font-black bg-white text-black px-2 py-0.5 rounded animate-blink">MIGRATE</button>` : ''}
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-[11px] font-black uppercase italic tracking-widest">Player Profile</h2>
+            ${isT ? `<button onclick="migrateChoice('${id}')" class="text-[10px] font-black bg-white text-black px-3 py-1 rounded animate-blink">MIGRATE</button>` : ''}
           </div>
           
-          <div class="font-black uppercase text-sm mb-2 border-b border-slate-800 pb-1">${p.fullName}</div>
+          <div class="font-black uppercase text-base mb-3 border-b border-slate-800 pb-2">${p.fullName}</div>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 gap-3">
             ${isT ? `
                 <div><label>Age</label><input value="${p.age}" disabled class="opacity-40"></div>
                 <div><label>Division</label><input id="p-grade" value="${p.grade || ''}"></div>
                 <div class="col-span-2"><label>Experience</label><input id="p-exp" value="${p.experience || ''}"></div>
-                <div class="col-span-2 mt-1 p-1 border border-dashed border-slate-800 rounded text-center">
-                    <p class="text-[7px] text-slate-500 uppercase font-black">More details available when added to roster</p>
+                <div class="col-span-2 mt-2 p-2 border border-dashed border-slate-800 rounded text-center">
+                    <p class="text-[9px] text-slate-500 uppercase font-black">More details available when added to roster</p>
                 </div>
             ` : `
                 <div class="col-span-2"><label>Experience</label><input id="p-exp" value="${p.experience || ''}"></div>
@@ -251,16 +249,16 @@
                 </div>
                 <div class="col-span-2"><label>Birthdate</label><input id="p-dob" type="date" value="${p.dob || ''}"></div>
                 <div class="col-span-2"><label>Parent</label><input id="p-pname" value="${p.parentName || ''}"></div>
-                <div class="col-span-2 grid grid-cols-2 gap-2">
+                <div class="col-span-2 grid grid-cols-2 gap-3">
                     <div><label>Phone</label><input id="p-phone" value="${p.parentPhone || ''}"></div>
                     <div><label>Email</label><input id="p-email" value="${p.parentEmail || ''}"></div>
                 </div>
             `}
           </div>
 
-          <div class="mt-3 flex gap-2">
-            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-1 text-[9px] font-bold text-slate-500 uppercase">Cancel</button>
-            <button onclick="saveProfile('${id}')" class="flex-1 py-1 bg-green-500 text-black font-black rounded text-[9px] uppercase">Save</button>
+          <div class="mt-5 flex gap-3">
+            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-2 text-[11px] font-bold text-slate-500 uppercase">Cancel</button>
+            <button onclick="saveProfile('${id}')" class="flex-1 py-2 bg-green-500 text-black font-black rounded text-[11px] uppercase">Save</button>
           </div>
         </div>
       `;
