@@ -13,7 +13,6 @@
     .btn-main { width: 280px; padding: 1.25rem; border-radius: 1rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; letter-spacing: 0.05em; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #334155; color: #94a3b8; }
-    /* Compact Player Card */
     .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.6rem 1rem; border-radius: 0.75rem; margin-bottom: 0.4rem; cursor: pointer; }
     .profile-modal { background: #0f172a; border: 2px solid #334155; width: 92%; max-width: 400px; border-radius: 1.5rem; padding: 1.5rem; position: relative; max-height: 90vh; overflow-y: auto; }
     input, select { background: #1e293b !important; border: 1px solid #475569 !important; color: white !important; padding: 0.5rem 0.75rem !important; border-radius: 0.5rem !important; width: 100%; height: 2.8rem; font-size: 1rem; }
@@ -22,6 +21,11 @@
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
     .menu-btn { width: 100%; padding: 1rem; background: #1e293b; border-radius: 0.75rem; font-weight: 900; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 0.5rem; }
+    
+    /* Search Bar Styles */
+    .search-container { position: relative; margin-bottom: 1rem; }
+    .search-input { padding-left: 2.5rem !important; border-radius: 2rem !important; background: rgba(30, 41, 59, 0.5) !important; border-color: #334155 !important; }
+    .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 1.2rem; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -39,7 +43,7 @@
     const db = firebase.database();
 
     let dbData = { players: {}, teams: {} };
-    let state = { screen: 'main', selectedTeam: null };
+    let state = { screen: 'main', selectedTeam: null, searchQuery: '' };
 
     db.ref('/').on('value', (snap) => {
       const data = snap.val() || {};
@@ -70,7 +74,11 @@
         const isU = state.selectedTeam === 'Unrostered';
         
         const list = Object.entries(dbData.players)
-          .filter(([id, p]) => p.team === state.selectedTeam)
+          .filter(([id, p]) => {
+            const matchesTeam = p.team === state.selectedTeam;
+            const matchesSearch = p.fullName.toLowerCase().includes(state.searchQuery.toLowerCase());
+            return matchesTeam && matchesSearch;
+          })
           .sort((a, b) => isT ? new Date(b[1].signUpDate || 0) - new Date(a[1].signUpDate || 0) : (a[1].fullName || "").localeCompare(b[1].fullName || ""));
 
         const headerTitle = (isT || isU) ? state.selectedTeam : `${state.selectedTeam}'S ROSTER`;
@@ -87,6 +95,15 @@
                 ${isT ? `<button onclick="confirmClear()" class="text-red-500 text-[10px] font-black">CLEAR</button>` : ''}
                 ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[10px] font-black uppercase">Sync</button>` : '<div class="w-8"></div>'}
               </div>
+            </div>
+
+            <div class="search-container">
+              <span class="search-icon">🔍</span>
+              <input type="text" 
+                     placeholder="Search player name..." 
+                     class="search-input" 
+                     value="${state.searchQuery}"
+                     oninput="updateSearch(this.value)">
             </div>
             
             <div class="flex-1 overflow-y-auto space-y-1 pb-24">
@@ -107,6 +124,7 @@
                   ` : ''}
                 </div>
               `).join('')}
+              ${list.length === 0 ? `<div class="text-center text-slate-600 text-[12px] mt-10 uppercase font-bold">No players found</div>` : ''}
             </div>
 
             ${!isT ? `
@@ -120,8 +138,17 @@
       }
     }
 
-    window.goBack = () => { state.screen = 'main'; render(); };
-    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+    window.updateSearch = (val) => {
+      state.searchQuery = val;
+      render();
+      // Keep the focus on the input after re-render
+      const input = document.querySelector('.search-input');
+      input.focus();
+      input.setSelectionRange(val.length, val.length);
+    };
+
+    window.goBack = () => { state.screen = 'main'; state.searchQuery = ''; render(); };
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; state.searchQuery = ''; render(); };
 
     window.openProfile = (id) => {
       const p = dbData.players[id];
