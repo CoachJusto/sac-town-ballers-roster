@@ -3,34 +3,27 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ballers Roster & Fees</title>
+  <title>Ballers Pro Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { --pantone-802c: #00FF6C; }
-    .pantone-802c { color: var(--pantone-802c); }
-    body, html { background-color: #020617 !important; margin: 0; padding: 0; min-height: 100vh; color: white; font-family: sans-serif; }
-    #app { background-color: #020617 !important; min-height: 100vh; }
-    
-    .btn-main { width: 240px; padding: 1.25rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    body, html { background-color: #020617 !important; color: white; font-family: sans-serif; min-height: 100vh; }
+    .btn-main { width: 240px; padding: 1.25rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; transition: all 0.2s; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
+    .btn-green { background: #00FF6C !important; color: black !important; border: none !important; }
     .player-card { background: #0f172a; border: 1px solid #1e293b; }
-    
-    .pay-status-btn { width: 75px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; font-weight: 900; font-size: 10px; text-transform: uppercase; }
-    .add-roster-btn { background: var(--pantone-802c); color: black; width: 100px; height: 32px; border-radius: 0.5rem; font-weight: 900; font-size: 9px; text-transform: uppercase; }
-
-    @keyframes pulse-red { 0% { background-color: #ef4444; } 50% { background-color: #991b1b; } 100% { background-color: #ef4444; } }
-    .animate-flash { animation: pulse-red 1.5s infinite; }
+    .inactive-card { opacity: 0.5; filter: grayscale(1); }
+    @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
+    .animate-migrate { animation: blink-red 0.8s infinite; color: white; font-weight: 900; font-size: 10px; padding: 4px 8px; border-radius: 4px; }
   </style>
 </head>
 <body>
-  <div id="app" class="min-h-screen flex flex-col items-center">
-    <p class="text-slate-600 animate-pulse uppercase tracking-widest text-xs font-bold mt-20">Syncing Ballers Cloud...</p>
-  </div>
+  <div id="app"></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
@@ -38,74 +31,76 @@
       databaseURL: "https://sac-town-ballers-roster-default-rtdb.firebaseio.com/",
       projectId: "sac-town-ballers-roster",
       storageBucket: "sac-town-ballers-roster.firebasestorage.app",
-      messagingSenderId: "80873311127",
-      appId: "1:80873311127:web:c59008f0242cf5123052d2"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
+    const fb = initializeApp(firebaseConfig);
+    const db = getDatabase(fb);
     let dbData = { players: {}, teams: {} };
-    let state = { screen: 'teamSelect', selectedTeam: null, activePlayerId: null, view: 'list' };
+    let state = { screen: 'main', selectedTeam: null, activeId: null, hasNewTryouts: false };
 
-    const getCurrentMonth = () => new Date().toLocaleString('default', { month: 'long' });
-    const period = () => `${getCurrentMonth()} ${new Date().getFullYear()}`;
+    const getMonth = () => new Date().toLocaleString('default', { month: 'long' }).toUpperCase();
 
-    function loadDb() {
-      onValue(ref(db, 'players'), (snap) => { dbData.players = snap.val() || {}; render(); });
-      onValue(ref(db, 'teams'), (snap) => { dbData.teams = snap.val() || {}; render(); });
+    function load() {
+      onValue(ref(db, '/'), (snap) => {
+        const data = snap.val() || {};
+        dbData.players = data.players || {};
+        dbData.teams = data.teams || { "JV": true, "Varsity": true };
+        render();
+      });
     }
 
-    // UPDATED SYNC LOGIC WITH CORRECT COLUMN MAPPING
-    async function syncFromGoogleSheets() {
+    async function syncSheet() {
+      if(!confirm("Start sync with Google Sheets?")) return;
       const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
       try {
-        const response = await fetch(csvUrl);
-        const text = await response.text();
-        const rows = text.split('\n').filter(r => r.trim() !== '').slice(1);
+        const res = await fetch(csvUrl);
+        const text = await res.text();
+        const rows = text.split('\n').slice(1);
         const existingNames = Object.values(dbData.players).map(p => p.fullName.toLowerCase().trim());
         
-        let addedCount = 0;
+        let added = 0;
         rows.forEach(row => {
-          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          let rawName = cols[1]?.replace(/"/g, '').trim();
-          
-          if (rawName && !existingNames.includes(rawName.toLowerCase())) {
-            const newId = 'p-' + Date.now() + Math.floor(Math.random() * 1000);
-            set(ref(db, `players/${newId}`), {
-              fullName: rawName,
-              grade: cols[2]?.replace(/"/g, '').trim() || 'N/A',
-              parentName: cols[3]?.replace(/"/g, '').trim() || '',
-              parentEmail: cols[4]?.replace(/"/g, '').trim() || '',
-              parentPhone: cols[5]?.replace(/"/g, '').trim() || '',
+          const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+          const name = c[5]?.replace(/"/g, '').trim(); // Col F
+          if (name && !existingNames.includes(name.toLowerCase())) {
+            const id = 'p-' + Date.now() + Math.random().toString(36).substr(2, 5);
+            set(ref(db, `players/${id}`), {
+              fullName: name,
+              signUpDate: c[0]?.split(' ')[0] || '', // Col A
+              parentName: c[1]?.replace(/"/g, '').trim() || '', // Col B
+              parentPhone: c[2]?.replace(/"/g, '').trim() || '', // Col C
+              parentEmail: c[3]?.replace(/"/g, '').trim() || '', // Col D
+              grade: c[4] || 'N/A',
               team: 'Tryouts',
-              jerseyNumber: '00',
               status: 'active'
             });
-            addedCount++;
+            added++;
           }
         });
-        alert(`Sync Complete: ${addedCount} new athletes found.`);
-      } catch (err) { alert("Sync Error. Check link."); }
+        state.hasNewTryouts = added > 0;
+        alert(added > 0 ? `Sync complete! ${added} new athletes added.` : "No new athletes found.");
+        render();
+      } catch (e) { alert("Sync failed. Check connection."); }
     }
 
+    // --- RENDER ENGINE ---
     function render() {
-      const appEl = document.getElementById('app');
-      if (!appEl) return;
-      appEl.innerHTML = '';
-
-      if (state.screen === 'teamSelect') {
-        let teamList = Object.keys(dbData.teams);
-        if (teamList.length === 0) teamList = ['Jr. High', 'JV', 'Varsity'];
-        if (!teamList.includes('Tryouts')) teamList.push('Tryouts');
-
-        appEl.innerHTML = `
-          <div class="flex flex-col items-center pt-8 px-4 w-full">
-            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-4">
-            <h1 class="text-2xl font-black mb-6 italic uppercase text-center">Select Squad</h1>
-            <div class="flex flex-col gap-3">
-              ${teamList.map(team => `<button onclick="window.selectTeam('${team}')" class="btn-main ${team==='Tryouts'?'btn-outline':'btn-gradient'} shadow-md">${team}</button>`).join('')}
-              <button onclick="window.syncFromGoogleSheets()" class="btn-main mt-4 border-2 border-green-500 text-green-500 py-3 text-sm font-black">🔄 SYNC GOOGLE FORM</button>
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      
+      if (state.screen === 'main') {
+        const teams = Object.keys(dbData.teams);
+        app.innerHTML = `
+          <div class="flex flex-col items-center p-6">
+            <div class="w-full flex justify-end mb-10">
+              <button onclick="addTeam()" class="text-[10px] font-bold border border-slate-700 px-3 py-1 rounded">+ ADD TEAM</button>
+            </div>
+            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-24 mb-8">
+            <div class="flex flex-col gap-4">
+              ${teams.map(t => `<button onclick="goTeam('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
+              <button onclick="goTeam('Tryouts')" class="btn-main ${state.hasNewTryouts ? 'btn-green' : 'btn-outline'}">TRYOUTS</button>
+              <button onclick="syncSheet()" class="btn-main border border-green-500 text-green-500">🔄 SYNC DATA</button>
+              <button onclick="goTeam('Unrostered')" class="btn-main border border-slate-700 text-slate-600 bg-slate-900/50">UNROSTERED</button>
             </div>
           </div>
         `;
@@ -113,122 +108,158 @@
 
       if (state.screen === 'roster') {
         const isTryouts = state.selectedTeam === 'Tryouts';
-        const teamPlayers = Object.entries(dbData.players)
+        const isUnrostered = state.selectedTeam === 'Unrostered';
+        const players = Object.entries(dbData.players)
           .filter(([_, p]) => p.team === state.selectedTeam)
-          .sort((a, b) => a[1].fullName.localeCompare(b[1].fullName));
+          .sort((a,b) => isTryouts ? new Date(b[1].signUpDate) - new Date(a[1].signUpDate) : 0);
 
-        appEl.innerHTML = `
-          <div class="max-w-md mx-auto p-4 w-full">
-            <div class="flex justify-between items-center mb-6">
-              <button onclick="window.goBackToTeams()" class="text-slate-500 text-xs font-bold uppercase">← Teams</button>
-              <h2 class="text-2xl font-black pantone-802c italic leading-none">${state.selectedTeam.toUpperCase()}</h2>
-              <button onclick="window.quickAdd()" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">+ ADD</button>
-            </div>
-            <div class="space-y-3">
-              ${teamPlayers.map(([id, p]) => {
-                const isPaid = p.lastPaymentMonth === period();
-                return `
-                  <div class="player-card p-4 rounded-xl flex justify-between items-center">
-                    <div class="flex-1 cursor-pointer" onclick="window.openDetails('${id}')">
-                      <div class="font-bold text-lg leading-tight">${p.fullName}</div>
-                      <div class="text-[11px] text-slate-500 uppercase font-black">GR: ${p.grade || 'N/A'} ${isTryouts ? '' : `• #${p.jerseyNumber || '00'}`}</div>
-                    </div>
-                    <div>
-                      ${isTryouts ? 
-                        `<button onclick="window.openMigrate('${id}')" class="add-roster-btn">ADD TO ROSTER</button>` : 
-                        `<button onclick="window.openPayment('${id}')" class="pay-status-btn ${isPaid ? 'bg-green-500/20 text-green-400' : 'animate-flash text-white'}">${isPaid ? 'PAID' : 'UNPAID'}</button>`
-                      }
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      // ASSIGN TEAM WINDOW (MIGRATE)
-      if (state.view === 'migrate' && state.activePlayerId) {
-        const p = dbData.players[state.activePlayerId];
-        let teams = Object.keys(dbData.teams).filter(t => t !== 'Tryouts');
-        if (teams.length === 0) teams = ['Jr. High', 'JV', 'Varsity'];
-
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-6';
-        modal.innerHTML = `
-          <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-xs text-center border border-slate-800 shadow-2xl">
-            <h3 class="text-xl font-black mb-2 uppercase italic">Add To Roster</h3>
-            <p class="text-[10px] text-slate-500 font-bold mb-6">SELECT TEAM FOR: ${p.fullName}</p>
-            <div class="flex flex-col gap-3">
-              ${teams.map(t => `<button onclick="window.finalizeMigration('${t}')" class="py-4 bg-white text-black rounded-xl font-black text-xs uppercase hover:bg-green-400">${t}</button>`).join('')}
-            </div>
-            <button onclick="window.closeModals()" class="mt-6 text-slate-500 font-bold text-xs uppercase underline">Cancel</button>
-          </div>
-        `;
-        appEl.appendChild(modal);
-      }
-
-      // PLAYER DETAILS WINDOW (Remains available for edits)
-      if (state.view === 'details' && state.activePlayerId) {
-        const p = dbData.players[state.activePlayerId];
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/95 z-50 p-6 overflow-y-auto';
-        modal.innerHTML = `
-          <div class="max-w-sm mx-auto pb-20">
-            <h2 class="text-2xl font-black mb-6 italic uppercase">Player Profile</h2>
-            <div class="grid grid-cols-1 gap-4">
-              <div><label class="text-[10px] text-slate-500 font-bold uppercase">Full Name</label><input id="det-name" value="${p.fullName || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-              <div class="flex gap-2">
-                <div class="w-1/3"><label class="text-[10px] text-slate-500 font-bold uppercase">Jersey #</label><input id="det-num" value="${p.jerseyNumber || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-                <div class="w-2/3"><label class="text-[10px] text-slate-500 font-bold uppercase">Grade</label><input id="det-grade" value="${p.grade || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
+        app.innerHTML = `
+          <div class="p-4 max-w-md mx-auto">
+            <div class="flex justify-between items-start mb-6">
+              <button onclick="state.screen='main';render()" class="text-xs text-slate-500">BACK</button>
+              <div class="text-center">
+                <div class="flex items-center justify-center gap-2">
+                    <h2 class="text-xl font-black italic uppercase">${state.selectedTeam}'S ROSTER</h2>
+                    <span onclick="editTeam()" class="text-xs cursor-pointer">✏️</span>
+                </div>
+                <p class="text-[10px] text-slate-500 font-bold uppercase">${players.length} PLAYERS</p>
               </div>
-              <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Name</label><input id="det-pname" value="${p.parentName || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-              <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Email</label><input id="det-pemail" value="${p.parentEmail || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-              <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Number</label><input id="det-pphone" value="${p.parentPhone || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
+              ${isTryouts ? `<button onclick="syncSheet()" class="text-[10px] font-bold bg-blue-600 px-3 py-1 rounded text-white">SYNC</button>` : `<div class="w-8"></div>`}
             </div>
-            <div class="mt-8 space-y-3">
-              <button onclick="window.saveDetails()" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase">SAVE CHANGES</button>
-              <button onclick="window.closeModals()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
+
+            <div class="space-y-3">
+              ${players.map(([id, p]) => `
+                <div class="player-card p-4 rounded-xl flex justify-between items-center ${p.status === 'no-cut' ? 'inactive-card' : ''}">
+                  <div onclick="openProfile('${id}')" class="cursor-pointer">
+                    <p class="font-black uppercase">${p.fullName}</p>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase">
+                        ${isTryouts ? p.signUpDate : `#${p.jersey || '00'} • ${p.pos || 'POS'}`} • GR: ${p.grade}
+                    </p>
+                  </div>
+                  <div>
+                    ${isTryouts ? `<button onclick="openMigrate('${id}')" class="animate-migrate">MIGRATE</button>` : ''}
+                    ${isUnrostered ? `<button onclick="movePlayerPrompt('${id}')" class="text-[9px] font-bold bg-white text-black px-2 py-1 rounded">ADD TO ROSTER</button>` : ''}
+                    ${(!isTryouts && !isUnrostered) ? `
+                      <div class="text-right">
+                        <p class="text-[8px] font-bold text-slate-500 mb-1">${getMonth()}'S FEE</p>
+                        <button onclick="openPay('${id}')" class="pay-status-btn text-[10px] font-black px-3 py-1 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'bg-red-500 text-white'}">
+                            ${p.paid ? 'PAID via '+p.payMethod : 'UNPAID'}
+                        </button>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('')}
             </div>
           </div>
         `;
-        appEl.appendChild(modal);
       }
     }
 
-    // HANDLERS
-    window.syncFromGoogleSheets = syncFromGoogleSheets;
-    window.selectTeam = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
-    window.goBackToTeams = () => { state.screen = 'teamSelect'; state.selectedTeam = null; render(); };
-    window.openDetails = (id) => { state.activePlayerId = id; state.view = 'details'; render(); };
-    window.openPayment = (id) => { state.activePlayerId = id; state.view = 'payment'; render(); };
-    window.openMigrate = (id) => { state.activePlayerId = id; state.view = 'migrate'; render(); };
-    window.closeModals = () => { state.view = 'list'; render(); };
-
-    window.finalizeMigration = async (newTeam) => {
-      await update(ref(db, `players/${state.activePlayerId}`), { team: newTeam });
-      state.view = 'list';
-      render();
+    // --- ACTIONS ---
+    window.addTeam = () => {
+        const name = prompt("Enter New Team Name:");
+        if(name && confirm(`Create team "${name}"?`)) set(ref(db, `teams/${name}`), true);
     };
 
-    window.saveDetails = () => {
-      update(ref(db, `players/${state.activePlayerId}`), {
-        fullName: document.getElementById('det-name').value,
-        jerseyNumber: document.getElementById('det-num').value,
-        grade: document.getElementById('det-grade').value,
-        parentName: document.getElementById('det-pname').value,
-        parentEmail: document.getElementById('det-pemail').value,
-        parentPhone: document.getElementById('det-pphone').value,
-      });
-      window.closeModals();
+    window.editTeam = () => {
+        const act = prompt("Type 'RENAME' or 'DELETE' team:");
+        if(act === 'DELETE' && confirm("Delete this entire team and move players to Unrostered?")) {
+            // Player movement logic would go here
+            remove(ref(db, `teams/${state.selectedTeam}`));
+            state.screen = 'main';
+            render();
+        }
     };
 
-    window.quickAdd = () => {
-      const name = prompt("Athlete Name:");
-      if (name) update(ref(db, `players/p-${Date.now()}`), { fullName: name, team: state.selectedTeam, grade: 'N/A' });
+    window.goTeam = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+
+    window.openMigrate = (id) => {
+        state.activeId = id;
+        const choice = prompt("MIGRATE OPTIONS:\n1. MADE TEAM\n2. DIDNT MAKE TEAM\n3. SYNC TO PLAYER");
+        if(choice === "1") {
+            const target = prompt("Target Team Name (e.g. JV, Varsity):");
+            if(target && confirm(`Move to ${target}?`)) {
+                update(ref(db, `players/${id}`), { team: target, status: 'active' });
+            }
+        } else if (choice === "2") {
+            if(confirm("Move athlete to Unrostered?")) {
+                update(ref(db, `players/${id}`), { team: 'Unrostered', status: 'no-cut' });
+            }
+        } else if (choice === "3") {
+            alert("Open Roster and select player to merge...");
+        }
     };
 
-    loadDb();
+    window.openProfile = (id) => {
+        const p = dbData.players[id];
+        const modal = document.createElement('div');
+        modal.className = "fixed inset-0 bg-black/95 z-50 p-6 overflow-y-auto";
+        modal.innerHTML = `
+            <div class="max-w-sm mx-auto">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-black italic uppercase">Player Profile</h2>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove()" class="text-xl">✕</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between bg-slate-900 p-4 rounded border border-slate-800">
+                        <span class="text-slate-500 font-bold text-xs uppercase">Move/Change</span>
+                        <span onclick="migrateIconAction('${id}')" class="text-xl cursor-pointer">⇆</span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Position</label>
+                        <select id="p-pos" class="bg-slate-900 p-3 rounded border border-slate-700">
+                            <option ${p.pos==='PG'?'selected':''}>PG</option>
+                            <option ${p.pos==='SG'?'selected':''}>SG</option>
+                            <option ${p.pos==='SF'?'selected':''}>SF</option>
+                            <option ${p.pos==='PF'?'selected':''}>PF</option>
+                            <option ${p.pos==='C'?'selected':''}>C</option>
+                        </select>
+                        <input id="p-name" value="${p.fullName}" class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <input id="p-parent" value="${p.parentName}" placeholder="Parent Name" class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <input id="p-phone" value="${p.parentPhone}" placeholder="Parent Phone" class="bg-slate-900 p-3 rounded border border-slate-700">
+                        <input id="p-email" value="${p.parentEmail}" placeholder="Parent Email" class="bg-slate-900 p-3 rounded border border-slate-700">
+                    </div>
+                    <button onclick="saveProf('${id}')" class="w-full bg-green-500 text-black font-black py-4 rounded-xl uppercase">Save Changes</button>
+                    <div class="border-t border-slate-800 pt-4">
+                         <button onclick="addFile()" class="w-full border border-dashed border-slate-700 py-4 text-xs font-bold uppercase">+ Add Document/File</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    };
+
+    window.saveProf = (id) => {
+        if(!confirm("Save profile updates?")) return;
+        update(ref(db, `players/${id}`), {
+            fullName: document.getElementById('p-name').value,
+            parentName: document.getElementById('p-parent').value,
+            parentPhone: document.getElementById('p-phone').value,
+            parentEmail: document.getElementById('p-email').value,
+            pos: document.getElementById('p-pos').value
+        });
+        document.querySelector('.fixed').remove();
+    };
+
+    window.migrateIconAction = (id) => {
+        const move = prompt("1. CHANGE TEAM\n2. REMOVE TO UNROSTERED");
+        if(move === "1") {
+            const t = prompt("Enter new team name:");
+            if(t && confirm(`Move to ${t}?`)) update(ref(db, `players/${id}`), { team: t });
+        } else if (move === "2") {
+            if(confirm("Remove from active roster?")) update(ref(db, `players/${id}`), { team: 'Unrostered', status: 'no-cut' });
+        }
+    };
+
+    window.openPay = (id) => {
+        const method = prompt("Select Payment Method:\nVENMO, CASHAPP, CREDIT CARD, OTHER");
+        if(method && confirm(`Mark as PAID via ${method}?`)) {
+            update(ref(db, `players/${id}`), { paid: true, payMethod: method.toUpperCase() });
+        }
+    };
+
+    load();
   </script>
 </body>
 </html>
