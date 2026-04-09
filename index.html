@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Ballers Manager Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <style>
     body, html { background-color: #020617; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; margin: 0; font-size: 18px; }
     #app { height: 100%; display: flex; flex-direction: column; }
@@ -12,20 +14,19 @@
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #334155; color: #94a3b8; }
     .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 1rem 1.25rem; border-radius: 0.75rem; margin-bottom: 0.5rem; }
-    .profile-modal { background: #0f172a; border: 2px solid #334155; width: 92%; max-width: 380px; border-radius: 1rem; padding: 1.25rem; z-index: 100; }
-    input, select { background: #1e293b !important; border: 1px solid #475569 !important; color: white !important; padding: 0.5rem 0.75rem !important; border-radius: 0.4rem !important; width: 100%; }
-    label { font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; display: block; }
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="flex items-center justify-center h-full">
+      <p class="text-slate-500 font-bold uppercase tracking-widest animate-pulse">Loading Ballers DB...</p>
+    </div>
+  </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
+  <script>
+    // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBRlFQLj41BR_59Pjh3WDPpDjDxCnf4AXs",
       authDomain: "sac-town-ballers-roster.firebaseapp.com",
@@ -33,42 +34,119 @@
       projectId: "sac-town-ballers-roster",
     };
 
-    const fb = initializeApp(firebaseConfig);
-    const db = getDatabase(fb);
+    // Initialize Firebase using Compat mode (More stable for quick scripts)
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     let dbData = { players: {}, teams: {} };
     let state = { screen: 'main', selectedTeam: null };
 
-    const calcAge = (dob) => {
-        if(!dob) return "N/A";
-        const birth = new Date(dob);
-        const diff = Date.now() - birth.getTime();
-        return Math.abs(new Date(diff).getUTCFullYear() - 1970);
-    };
+    // Initial Data Load
+    db.ref('/').on('value', (snap) => {
+      const data = snap.val() || {};
+      dbData.players = data.players || {};
+      dbData.teams = data.teams || { "JV": true, "Varsity": true };
+      render();
+    });
 
-    function init() {
-      onValue(ref(db, '/'), (snap) => {
-        const data = snap.val() || {};
-        dbData.players = data.players || {};
-        dbData.teams = data.teams || { "JV": true, "Varsity": true };
-        render();
-      });
+    function render() {
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+
+      if (state.screen === 'main') {
+        const teams = Object.keys(dbData.teams);
+        app.innerHTML = `
+          <div class="flex flex-col items-center pt-12 px-4 w-full relative">
+            <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[14px] font-bold bg-white/10 px-5 py-2 rounded">+ TEAM</button>
+            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-28 mb-12">
+            <div class="flex flex-col gap-6">
+              ${teams.map(t => `<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
+              <button onclick="go('Tryouts')" class="btn-main btn-outline">TRYOUTS</button>
+              <button onclick="go('Unrostered')" class="mt-8 text-[13px] font-bold text-slate-400 uppercase tracking-[0.2em] self-center">View Unrostered</button>
+            </div>
+          </div>
+        `;
+      } else {
+        const isT = state.selectedTeam === 'Tryouts';
+        const isU = state.selectedTeam === 'Unrostered';
+        
+        // SORTING LOGIC: Tryouts by Date (Col A), Rosters by Name
+        const list = Object.entries(dbData.players)
+          .filter(([id, p]) => p.team === state.selectedTeam)
+          .sort((a, b) => {
+            if (isT) {
+              return new Date(b[1].signUpDate || 0) - new Date(a[1].signUpDate || 0);
+            }
+            return (a[1].fullName || "").localeCompare(b[1].fullName || "");
+          });
+
+        app.innerHTML = `
+          <div class="p-5 flex flex-col h-full">
+            <div class="flex justify-between items-center mb-8">
+              <button onclick="goBack()" class="text-slate-400 text-[14px] font-black uppercase">← Back</button>
+              <h2 class="text-3xl font-black italic uppercase text-center tracking-tighter">${state.selectedTeam}</h2>
+              <div class="flex gap-4">
+                ${isT ? `<button onclick="confirmAction('clear')" class="text-red-500 text-[14px] font-black uppercase">CLEAR</button>` : ''}
+                ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[14px] font-black uppercase">SYNC</button>` : ''}
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto space-y-3 pb-24">
+              ${list.length ? list.map(([id, p]) => `
+                <div class="player-card flex justify-between items-center">
+                  <div class="flex-1">
+                    <div class="font-black uppercase text-lg leading-tight">${p.fullName}</div>
+                    <div class="text-[12px] text-slate-400 font-bold uppercase mt-2">
+                      ${isT ? `DIV: ${p.grade || 'N/A'} • EXP: ${p.experience || 'N/A'}` : `Age: ${p.age || 'N/A'}`}
+                    </div>
+                  </div>
+                  <div>
+                    ${(!isT && !isU) ? `<button class="text-[12px] font-black h-10 px-4 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">${p.paid ? 'PAID' : 'UNPAID'}</button>` : ''}
+                  </div>
+                </div>
+              `).join('') : '<p class="text-center text-slate-600 mt-10">NO PLAYERS FOUND</p>'}
+            </div>
+          </div>
+        `;
+      }
     }
 
-    async function executeSync() {
+    // App Navigation & Actions
+    window.goBack = () => { state.screen = 'main'; render(); };
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+    
+    window.addTeam = () => {
+      const name = prompt("Team Name:");
+      if(name) db.ref(`teams/${name}`).set(true);
+    };
+
+    window.confirmAction = (type) => {
+      if(confirm("Are you sure?")) {
+        Object.entries(dbData.players).forEach(([id, p]) => {
+          if(p.team === 'Tryouts') db.ref(`players/${id}`).remove();
+        });
+      }
+    };
+
+    window.syncSheet = async () => {
       const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
       try {
         const res = await fetch(csvUrl);
         const text = await res.text();
         const rows = text.split('\n').slice(1);
-        const allNames = Object.values(dbData.players).map(p => p.fullName.toLowerCase().trim());
-        
         rows.forEach(row => {
           const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
           const name = c[5]?.replace(/"/g, '').trim(); 
-          if (name && !allNames.includes(name.toLowerCase())) {
-            const id = 'p-' + Date.now() + Math.floor(Math.random()*1000);
-            set(ref(db, `players/${id}`), {
+          if (name) {
+            db.ref('players').push({
               fullName: name,
               signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
-              age: c[6]?.replace(/"/g, '') || 'N/A', 
-              experience: c
+              grade: c[9]?.replace(/"/g, '') || 'N/A',
+              team: 'Tryouts'
+            });
+          }
+        });
+      } catch (e) { alert("Sync failed."); }
+    };
+  </script>
+</body>
+</html>
