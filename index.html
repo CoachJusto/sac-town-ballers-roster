@@ -255,30 +255,37 @@
 
     window.syncSheet = async () => {
       const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
+      
       try {
         const res = await fetch(csvUrl);
         const text = await res.text();
         const rows = text.split('\n').slice(1);
+
         rows.forEach(row => {
           const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          const athleteName = c[5]?.replace(/"/g, '').trim(); 
+          const athleteName = c[5]?.replace(/"/g, '').trim();
+
           if (athleteName) {
             db.ref('players').push({
               fullName: athleteName,
               signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
-              parent: c[1]?.replace(/"/g, '') || 'N/A',   // B
-              phone: c[2]?.replace(/"/g, '') || 'N/A',    // C
-              email: c[3]?.replace(/"/g, '') || 'N/A',    // D
-              age: c[6]?.replace(/"/g, '') || 'N/A',      // G
-              experience: c[7]?.replace(/"/g, '') || 'None', // H
-              grade: c[9]?.replace(/"/g, '') || 'N/A',    // J
+              parent: c[1]?.replace(/"/g, '') || 'N/A',
+              phone: c[2]?.replace(/"/g, '') || 'N/A',
+              email: c[3]?.replace(/"/g, '') || 'N/A',
+              age: c[6]?.replace(/"/g, '') || 'N/A',
+              experience: c[7]?.replace(/"/g, '') || 'None',
+              grade: c[9]?.replace(/"/g, '') || 'N/A',
               team: 'Tryouts',
               paid: false
             });
           }
         });
+
         alert("Sync Complete!");
-      } catch (e) { alert("Sync error"); }
+      } catch (e) {
+        console.error(e);
+        alert("Sync error. Check the console.");
+      }
     };
   </script>
 </body>
