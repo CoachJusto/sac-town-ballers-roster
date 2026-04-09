@@ -2,26 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ballers Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Ballers Manager Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { --pantone-802c: #00FF6C; }
-    .pantone-802c { color: var(--pantone-802c); }
-    body, html { background-color: #020617 !important; margin: 0; padding: 0; min-height: 100vh; color: white; font-family: sans-serif; }
-    #app { background-color: #020617 !important; min-height: 100vh; }
+    body, html { background-color: #020617; color: white; font-family: sans-serif; height: 100vh; overflow: hidden; }
+    #app { height: 100%; display: flex; flex-direction: column; }
     
-    .btn-main { width: 240px; padding: 1.25rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .btn-small { width: 240px; padding: 0.75rem; border-radius: 0.75rem; text-transform: uppercase; font-weight: 900; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+    .btn-main { width: 240px; padding: 1rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
-    .btn-green-fill { background: var(--pantone-802c); color: black; }
+    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.75rem; border-radius: 0.75rem; }
     
-    .player-card { background: #0f172a; border: 1px solid #1e293b; }
-    .pay-status-btn { width: 90px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; font-weight: 900; font-size: 10px; text-transform: uppercase; }
+    input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; padding: 0.4rem !important; border-radius: 0.4rem !important; font-size: 0.85rem !important; }
+    label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 2px; display: block; }
     
-    @keyframes pulse-red { 0% { background-color: #ef4444; } 50% { background-color: #991b1b; } 100% { background-color: #ef4444; } }
-    .animate-flash { animation: pulse-red 1.5s infinite; }
+    @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
+    .animate-migrate { animation: blink-red 1s infinite; }
   </style>
 </head>
 <body>
@@ -41,9 +39,15 @@
     const fb = initializeApp(firebaseConfig);
     const db = getDatabase(fb);
     let dbData = { players: {}, teams: {} };
-    let state = { screen: 'main', selectedTeam: null, activeId: null, hasNewTryouts: false };
+    let state = { screen: 'main', selectedTeam: null };
 
-    const getPeriod = () => new Date().toLocaleString('default', { month: 'long' }).toUpperCase();
+    // Age Calculator
+    const calcAge = (dob) => {
+        if(!dob) return "N/A";
+        const birth = new Date(dob);
+        const diff = Date.now() - birth.getTime();
+        return Math.abs(new Date(diff).getUTCFullYear() - 1970);
+    };
 
     function init() {
       onValue(ref(db, '/'), (snap) => {
@@ -60,29 +64,27 @@
         const res = await fetch(csvUrl);
         const text = await res.text();
         const rows = text.split('\n').slice(1);
-        const existing = Object.values(dbData.players).map(p => p.fullName.toLowerCase().trim());
-        let added = 0;
-
+        const allExistingNames = Object.values(dbData.players).map(p => p.fullName.toLowerCase().trim());
+        
         rows.forEach(row => {
           const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          const name = c[5]?.replace(/"/g, '').trim(); 
-          if (name && !existing.includes(name.toLowerCase())) {
+          const name = c[5]?.replace(/"/g, '').trim(); // Col F
+          if (name && !allExistingNames.includes(name.toLowerCase())) {
             const id = 'p-' + Date.now() + Math.floor(Math.random()*1000);
             set(ref(db, `players/${id}`), {
               fullName: name,
-              signUpDate: c[0]?.split(' ')[0] || '',
-              parentName: c[1]?.replace(/"/g, '') || '',
-              parentPhone: c[2]?.replace(/"/g, '') || '',
-              parentEmail: c[3]?.replace(/"/g, '') || '',
+              signUpDate: c[0]?.replace(/"/g, '') || '', // Col A
+              parentName: c[1]?.replace(/"/g, '') || '', // Col B
+              parentPhone: c[2]?.replace(/"/g, '') || '', // Col C
+              parentEmail: c[3]?.replace(/"/g, '') || '', // Col D
               grade: c[4]?.replace(/"/g, '') || 'N/A',
-              team: 'Tryouts'
+              age: c[6]?.replace(/"/g, '') || 'N/A', // Col G
+              team: 'Tryouts',
+              status: 'active'
             });
-            added++;
           }
         });
-        state.hasNewTryouts = added > 0;
-        render();
-      } catch (e) { console.error("Sync Error"); }
+      } catch (e) { console.error("Sync Failed"); }
     }
 
     function render() {
@@ -92,23 +94,17 @@
       if (state.screen === 'main') {
         const teams = Object.keys(dbData.teams);
         app.innerHTML = `
-          <div class="flex flex-col items-center pt-8 px-4 w-full relative">
-            <button onclick="window.addTeamPrompt()" class="absolute top-4 right-4 text-white text-xs font-bold bg-white/10 px-3 py-1 rounded">+ TEAM</button>
-            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-6">
-            <h1 class="text-2xl font-black mb-8 italic uppercase">Select Squad</h1>
-            <div class="flex flex-col gap-3">
-              ${teams.map(t => `<button onclick="window.viewTeam('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
-              <button onclick="window.viewTeam('Tryouts')" class="btn-main ${state.hasNewTryouts ? 'btn-green-fill' : 'btn-outline'}">TRYOUTS</button>
-              <div class="mt-4 flex flex-col gap-2">
-                <button onclick="window.runSync()" class="btn-small border border-green-500 text-green-500">🔄 SYNC GOOGLE FORM</button>
-                <button onclick="window.viewTeam('Unrostered')" class="btn-small border border-slate-700 text-slate-600">UNROSTERED</button>
-              </div>
+          <div class="flex flex-col items-center pt-12 px-4 w-full relative">
+            <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[10px] font-bold bg-white/10 px-3 py-1 rounded">+ TEAM</button>
+            <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-10">
+            <div class="flex flex-col gap-4">
+              ${teams.map(t => `<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
+              <button onclick="go('Tryouts')" class="btn-main btn-outline">TRYOUTS</button>
+              <button onclick="go('Unrostered')" class="mt-4 text-[10px] font-bold text-slate-600 uppercase tracking-widest">View Unrostered</button>
             </div>
           </div>
         `;
-      }
-
-      if (state.screen === 'roster') {
+      } else {
         const isT = state.selectedTeam === 'Tryouts';
         const isU = state.selectedTeam === 'Unrostered';
         const list = Object.entries(dbData.players)
@@ -116,39 +112,25 @@
           .sort((a,b) => isT ? new Date(b[1].signUpDate) - new Date(a[1].signUpDate) : a[1].fullName.localeCompare(b[1].fullName));
 
         app.innerHTML = `
-          <div class="max-w-md mx-auto p-4 w-full">
-            <div class="flex justify-between items-center mb-6">
-              <button onclick="state.screen='main';render()" class="text-slate-500 text-[10px] font-black uppercase tracking-widest">← Back</button>
-              <div class="text-center flex items-center gap-2">
-                <h2 class="text-2xl font-black pantone-802c italic uppercase leading-none">
-                  ${isT || isU ? state.selectedTeam : `${state.selectedTeam}'S ROSTER`}
-                </h2>
-                ${(!isT && !isU) ? `<span onclick="editTeamSet()" class="text-green-400 border border-green-400/30 p-1 rounded cursor-pointer">✏️</span>` : ''}
-              </div>
-              ${!isT ? `<button onclick="window.quickAdd()" class="bg-white text-black px-4 py-1 rounded-lg font-bold text-[10px]">+ ADD</button>` : `<div class="w-10"></div>`}
+          <div class="p-4 flex flex-col h-full">
+            <div class="flex justify-between items-center mb-4">
+              ${isT ? `<button onclick="clearTryouts()" class="text-red-500 text-[10px] font-black uppercase">CLEAR</button>` : `<button onclick="state.screen='main';render()" class="text-slate-500 text-[10px] font-black uppercase tracking-widest">← Back</button>`}
+              <h2 class="text-xl font-black italic uppercase text-center">${state.selectedTeam}</h2>
+              ${isT ? `<button onclick="runSync()" class="text-green-400 text-[10px] font-black uppercase">SYNC</button>` : `<div class="w-10"></div>`}
             </div>
-            ${(!isT && !isU) ? `<p class="text-center text-[10px] text-slate-500 font-bold mb-4 uppercase tracking-tighter">${list.length} Players on Roster</p>` : ''}
-            <div class="space-y-3">
+
+            <div class="flex-1 overflow-y-auto space-y-2 pb-20">
               ${list.map(([id, p]) => `
-                <div class="player-card p-4 rounded-xl flex justify-between items-center ${p.status === 'no-cut' ? 'opacity-40' : ''}">
-                  <div class="flex-1 cursor-pointer" onclick="window.openProfile('${id}')">
-                    <div class="font-black text-lg leading-tight italic uppercase">${p.fullName}</div>
-                    <div class="text-[10px] text-slate-500 uppercase font-black">
-                        ${isT ? p.signUpDate : `#${p.jersey || '00'} • ${p.pos || 'POS'}`} • GR: ${p.grade}
+                <div class="player-card flex justify-between items-center">
+                  <div class="cursor-pointer" onclick="openProfile('${id}')">
+                    <div class="font-black uppercase text-sm">${p.fullName}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase">
+                        ${isT ? `Registered: ${p.signUpDate.split(' ')[0]}` : `#${p.jersey || '00'} • ${p.pos || 'POS'}`} • AGE: ${p.age || calcAge(p.dob)} • GR: ${p.grade}
                     </div>
                   </div>
-                  <div>
-                    ${isT ? `<button onclick="window.migrateMenu('${id}')" class="pay-status-btn animate-flash text-white">MIGRATE</button>` : ''}
-                    ${isU ? `<button onclick="window.migrateMenu('${id}')" class="pay-status-btn border border-white text-white">ADD TO ROSTER</button>` : ''}
-                    ${(!isT && !isU) ? `
-                        <div class="text-right">
-                          <p class="text-[8px] font-bold text-slate-500 mb-1 tracking-widest uppercase">${getPeriod()}'S FEE</p>
-                          <button onclick="window.payMenu('${id}')" class="pay-status-btn ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-flash text-white'}">
-                            ${p.paid ? `PAID via ${p.payMethod}` : 'UNPAID'}
-                          </button>
-                        </div>
-                    ` : ''}
-                  </div>
+                  <button onclick="migrateMenu('${id}')" class="text-[9px] font-black h-8 px-3 rounded ${isT ? 'animate-migrate text-white' : 'border border-slate-700 text-slate-400'}">
+                    ${isT ? 'MIGRATE' : 'MOVE'}
+                  </button>
                 </div>
               `).join('')}
             </div>
@@ -157,38 +139,40 @@
       }
     }
 
-    // --- MODALS ---
     window.openProfile = (id) => {
       const p = dbData.players[id];
       const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black/95 z-50 p-6 overflow-y-auto';
+      modal.className = 'fixed inset-0 bg-black z-50 p-4';
       modal.innerHTML = `
-        <div class="max-w-sm mx-auto pb-20">
-          <div class="flex justify-between items-center mb-8">
-            <h2 class="text-2xl font-black italic uppercase">Player Profile</h2>
-            <button onclick="window.migrateMenu('${id}')" class="text-2xl opacity-70">⇆</button>
+        <div class="max-w-sm mx-auto h-full flex flex-col">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-black italic uppercase">Player Profile</h2>
+            <button onclick="migrateMenu('${id}')" class="text-xl">⇆</button>
           </div>
-          <div class="grid grid-cols-1 gap-4">
-            <div><label class="text-[10px] text-slate-500 font-bold uppercase">Full Name</label><input id="det-name" value="${p.fullName}" class="w-full bg-slate-900 p-3 rounded border border-slate-800 font-bold"></div>
-            <div class="flex gap-2">
-              <div class="w-1/3"><label class="text-[10px] text-slate-500 font-bold uppercase">Jersey #</label><input id="det-num" value="${p.jersey || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800 text-center font-bold"></div>
-              <div class="w-2/3"><label class="text-[10px] text-slate-500 font-bold uppercase">Position</label>
-                <select id="det-pos" class="w-full bg-slate-900 p-3 rounded border border-slate-800 font-bold">
-                  <option ${p.pos==='PG'?'selected':''}>PG</option>
-                  <option ${p.pos==='SG'?'selected':''}>SG</option>
-                  <option ${p.pos==='SF'?'selected':''}>SF</option>
-                  <option ${p.pos==='PF'?'selected':''}>PF</option>
-                  <option ${p.pos==='C'?'selected':''}>C</option>
+          
+          <div class="grid grid-cols-2 gap-x-3 gap-y-2 flex-1">
+            <div class="col-span-2"><label>Athlete's Name</label><input id="p-name" value="${p.fullName}" class="w-full"></div>
+            <div><label>Jersey #</label><input id="p-num" value="${p.jersey || ''}" class="w-full"></div>
+            <div><label>Position</label>
+                <select id="p-pos" class="w-full">
+                    <option ${p.pos==='PG'?'selected':''}>PG</option>
+                    <option ${p.pos==='SG'?'selected':''}>SG</option>
+                    <option ${p.pos==='SF'?'selected':''}>SF</option>
+                    <option ${p.pos==='PF'?'selected':''}>PF</option>
+                    <option ${p.pos==='C'?'selected':''}>C</option>
                 </select>
-              </div>
             </div>
-            <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Name</label><input id="det-pname" value="${p.parentName}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-            <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Number</label><input id="det-pphone" value="${p.parentPhone}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-            <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Email</label><input id="det-pemail" value="${p.parentEmail}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
+            <div><label>Age</label><input value="${p.age || calcAge(p.dob)}" disabled class="w-full opacity-50"></div>
+            <div><label>Grade</label><input id="p-grade" value="${p.grade || ''}" class="w-full"></div>
+            <div class="col-span-2"><label>Birthdate</label><input id="p-dob" type="date" value="${p.dob || ''}" class="w-full"></div>
+            <div class="col-span-2"><label>Parent/Guardian</label><input id="p-pname" value="${p.parentName || ''}" class="w-full"></div>
+            <div><label>Phone</label><input id="p-phone" value="${p.parentPhone || ''}" class="w-full"></div>
+            <div><label>Email</label><input id="p-email" value="${p.parentEmail || ''}" class="w-full"></div>
           </div>
-          <div class="mt-8 space-y-3">
-            <button onclick="window.saveProfile('${id}')" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase">SAVE CHANGES</button>
-            <button onclick="this.closest('.fixed').remove()" class="w-full py-2 text-slate-500 font-bold uppercase text-xs">Cancel</button>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 pb-4">
+            <button onclick="this.closest('.fixed').remove()" class="py-3 text-[10px] font-bold text-slate-500 uppercase">Cancel</button>
+            <button onclick="saveProfile('${id}')" class="py-3 bg-green-500 text-black font-black rounded-lg text-[10px] uppercase">Save</button>
           </div>
         </div>
       `;
@@ -199,94 +183,66 @@
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-6';
         modal.innerHTML = `
-            <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-                <h3 class="text-xl font-black mb-6 uppercase italic">Migrate Action</h3>
-                <div class="flex flex-col gap-3">
-                    <button onclick="window.teamSelect('${id}')" class="py-4 bg-white text-black font-black uppercase rounded-xl">Add To Roster</button>
-                    <button onclick="window.markCut('${id}')" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl">Didn't Make Team</button>
-                    <button onclick="window.syncMerge('${id}')" class="py-4 border border-blue-500 text-blue-500 font-black uppercase rounded-xl">Sync To Player</button>
-                </div>
-                <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-600 text-xs font-bold">CANCEL</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    };
-
-    window.payMenu = (id) => {
-        const methods = ['Venmo', 'CashApp', 'Credit Card', 'Other'];
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-6';
-        modal.innerHTML = `
-            <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-                <h3 class="text-xl font-black mb-6 uppercase italic">Payment Method</h3>
+            <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs text-center border border-slate-800">
+                <p class="text-xs font-black mb-4 uppercase text-slate-400 tracking-widest">Select Action</p>
                 <div class="flex flex-col gap-2">
-                    ${methods.map(m => `<button onclick="window.confirmPay('${id}', '${m}')" class="py-3 bg-slate-800 text-white font-black uppercase rounded-lg">${m}</button>`).join('')}
-                    <button onclick="window.confirmPay('${id}', null)" class="py-3 mt-4 text-red-500 text-xs font-bold">RESET TO UNPAID</button>
+                    <button onclick="teamSelect('${id}')" class="py-4 bg-white text-black font-black uppercase rounded-xl text-xs">Made Team</button>
+                    <button onclick="movePlayer('${id}', 'Unrostered')" class="py-4 bg-slate-800 text-white font-black uppercase rounded-xl text-xs">Didn't Make Team</button>
+                    <button onclick="alert('Syncing details...')" class="py-4 border border-blue-500 text-blue-500 font-black uppercase rounded-xl text-xs">Sync To Player</button>
                 </div>
-                <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-600 text-xs font-bold">CANCEL</button>
+                <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-500 text-[10px] font-bold">CANCEL</button>
             </div>
         `;
         document.body.appendChild(modal);
-    };
-
-    // --- HANDLERS ---
-    window.addTeamPrompt = () => {
-        const name = prompt("New Team Name:");
-        if(name) set(ref(db, `teams/${name}`), true);
-    };
-
-    window.viewTeam = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
-
-    window.saveProfile = (id) => {
-        update(ref(db, `players/${id}`), {
-            fullName: document.getElementById('det-name').value,
-            jersey: document.getElementById('det-num').value,
-            pos: document.getElementById('det-pos').value,
-            parentName: document.getElementById('det-pname').value,
-            parentPhone: document.getElementById('det-pphone').value,
-            parentEmail: document.getElementById('det-pemail').value,
-        });
-        document.querySelector('.fixed').remove();
-    };
-
-    window.confirmPay = (id, method) => {
-        update(ref(db, `players/${id}`), { paid: !!method, payMethod: method || '' });
-        document.querySelector('.fixed').remove();
-    };
-
-    window.markCut = (id) => {
-        update(ref(db, `players/${id}`), { team: 'Unrostered', status: 'no-cut' });
-        document.querySelector('.fixed').remove();
     };
 
     window.teamSelect = (id) => {
         const teams = Object.keys(dbData.teams);
         const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/95 z-[70] flex items-center justify-center p-6';
+        modal.className = 'fixed inset-0 bg-black z-[70] flex items-center justify-center p-6';
         modal.innerHTML = `
-            <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-                <h3 class="text-xl font-black mb-6 uppercase italic">Select Squad</h3>
+            <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs border border-slate-800">
                 <div class="flex flex-col gap-2">
-                    ${teams.map(t => `<button onclick="window.finishMove('${id}', '${t}')" class="py-3 bg-white text-black font-black uppercase rounded-lg">${t}</button>`).join('')}
+                    ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="py-3 bg-slate-800 text-white font-black uppercase rounded-lg text-xs">${t}</button>`).join('')}
                 </div>
-                <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-600 text-xs font-bold">CANCEL</button>
             </div>
         `;
         document.body.appendChild(modal);
     };
 
-    window.finishMove = (id, team) => {
-        update(ref(db, `players/${id}`), { team, status: 'active' });
-        document.querySelectorAll('.fixed').forEach(f => f.remove());
+    window.saveProfile = (id) => {
+        const dob = document.getElementById('p-dob').value;
+        update(ref(db, `players/${id}`), {
+            fullName: document.getElementById('p-name').value,
+            jersey: document.getElementById('p-num').value,
+            pos: document.getElementById('p-pos').value,
+            dob: dob,
+            age: calcAge(dob),
+            grade: document.getElementById('p-grade').value,
+            parentName: document.getElementById('p-pname').value,
+            parentPhone: document.getElementById('p-phone').value,
+            parentEmail: document.getElementById('p-email').value,
+        });
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
     };
 
-    window.quickAdd = () => {
-        const name = prompt("Athlete Name:");
-        if(name) {
-            const id = 'p-' + Date.now();
-            set(ref(db, `players/${id}`), { fullName: name, team: state.selectedTeam, grade: 'N/A' });
-        }
-    }
+    window.movePlayer = (id, team) => {
+        update(ref(db, `players/${id}`), { team, status: 'active' });
+        document.querySelectorAll('.fixed').forEach(m => m.remove());
+    };
+
+    window.clearTryouts = () => {
+        Object.entries(dbData.players).forEach(([id, p]) => {
+            if(p.team === 'Tryouts') remove(ref(db, `players/${id}`));
+        });
+    };
+
+    window.addTeam = () => {
+        const name = prompt("Team Name:");
+        if(name) set(ref(db, `teams/${name}`), true);
+    };
+
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
 
     init();
   </script>
