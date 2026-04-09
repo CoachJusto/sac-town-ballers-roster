@@ -16,7 +16,6 @@
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
     .player-card { background: #0f172a; border: 1px solid #1e293b; }
     
-    /* Fixed size for payment bubbles */
     .pay-status-btn {
       width: 70px;
       height: 32px;
@@ -78,20 +77,58 @@
       await set(ref(db, `players/${id}`), { ...dbData.players[id], ...data });
     }
 
+    async function syncFromGoogleSheets() {
+      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
+      
+      try {
+        const response = await fetch(csvUrl);
+        const text = await response.text();
+        const rows = text.split('\n').filter(row => row.trim() !== '').slice(1);
+        const existingNames = Object.values(dbData.players).map(p => p.fullName.toLowerCase().trim());
+        
+        let addedCount = 0;
+        rows.forEach(row => {
+          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+          let rawName = cols[1]?.replace(/"/g, '').trim();
+          let rawGrade = cols[2]?.replace(/"/g, '').trim();
+
+          if (rawName && !existingNames.includes(rawName.toLowerCase())) {
+            const newId = 'p-' + Date.now() + Math.floor(Math.random() * 1000);
+            set(ref(db, `players/${newId}`), {
+              fullName: rawName,
+              grade: rawGrade || 'N/A',
+              team: 'Tryouts',
+              status: 'active',
+              jerseyNumber: '00'
+            });
+            addedCount++;
+          }
+        });
+        alert(addedCount > 0 ? `Imported ${addedCount} new ballers!` : "No new athletes found.");
+      } catch (err) {
+        console.error(err);
+        alert("Sync failed. Check connection.");
+      }
+    }
+
     function render() {
       const appEl = document.getElementById('app');
       if (!appEl) return;
       appEl.innerHTML = '';
 
       if (state.screen === 'teamSelect') {
-        const teamList = Object.keys(dbData.teams).length > 0 ? Object.keys(dbData.teams) : ['Jr. High', 'JV', 'Varsity'];
+        let teamList = Object.keys(dbData.teams);
+        if (teamList.length === 0) teamList = ['Jr. High', 'JV', 'Varsity'];
+        if (!teamList.includes('Tryouts')) teamList.push('Tryouts');
+
         appEl.innerHTML = `
           <div class="flex flex-col items-center pt-8 px-4 w-full">
             <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-4">
             <h1 class="text-2xl font-black mb-6 italic uppercase tracking-tighter text-center">Select Squad</h1>
             <div class="flex flex-col gap-3">
               ${teamList.map(team => `<button onclick="window.selectTeam('${team}')" class="btn-main btn-gradient shadow-md">${team}</button>`).join('')}
-              <button onclick="window.addTeam()" class="btn-main btn-outline py-3 text-sm">+ Add New Team</button>
+              <button onclick="window.syncFromGoogleSheets()" class="btn-main mt-4 border-2 border-green-500 text-green-500 py-3 text-sm font-black">🔄 SYNC GOOGLE FORM</button>
+              <button onclick="window.addTeam()" class="btn-main btn-outline py-3 text-sm mt-2">+ Add New Team</button>
             </div>
           </div>
         `;
@@ -158,17 +195,15 @@
                 </div>
                 <div class="w-1/3"><label class="text-[10px] text-slate-500 font-bold uppercase">Grade</label><input id="det-grade" value="${p.grade || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
               </div>
+              <div><label class="text-[10px] text-slate-500 font-bold uppercase">Team</label>
+                <select id="det-team" class="w-full bg-slate-900 p-3 rounded border border-slate-800 text-white">
+                  ${(Object.keys(dbData.teams).length > 0 ? Object.keys(dbData.teams) : ['Tryouts', 'Jr. High', 'JV', 'Varsity']).map(t => `<option value="${t}" ${p.team === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
               <div><label class="text-[10px] text-slate-500 font-bold uppercase">Birthdate</label><input id="det-dob" value="${p.birthdate || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
               <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Name</label><input id="det-pname" value="${p.parentName || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
               <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Email</label><input id="det-pemail" value="${p.parentEmail || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
               <div><label class="text-[10px] text-slate-500 font-bold uppercase">Parent Number</label><input id="det-pphone" value="${p.parentPhone || ''}" class="w-full bg-slate-900 p-3 rounded border border-slate-800"></div>
-            </div>
-            <div class="mt-8">
-               <h3 class="text-xs font-bold text-slate-500 uppercase mb-3">Documents</h3>
-               <div id="file-list" class="space-y-2 mb-4">
-                 ${p.files ? Object.entries(p.files).map(([fid, f]) => `<div class="flex justify-between bg-slate-800 p-2 rounded text-xs"><span class="font-bold">${f.name}</span><button onclick="window.viewFile('${f.data}')" class="text-green-400">View</button></div>`).join('') : '<p class="text-[10px] text-slate-700 italic">No files.</p>'}
-               </div>
-               <button onclick="document.getElementById('fileInput').click()" class="w-full py-3 border border-dashed border-slate-700 text-slate-400 text-xs font-bold rounded">+ UPLOAD FILE</button>
             </div>
             <div class="mt-8 space-y-3">
               <button onclick="window.saveDetails()" class="w-full py-4 bg-green-500 text-black font-black rounded-xl uppercase">SAVE CHANGES</button>
@@ -200,33 +235,21 @@
       }
     }
 
-    window.addTeam = async () => {
-      const name = prompt("New Team Name:");
-      if (name) await set(ref(db, `teams/${name}`), true);
-    };
-
-    window.manageTeamMenu = async (oldName) => {
-      const action = prompt(`Type "RENAME" or "DELETE" for ${oldName}:`);
-      if (action?.toUpperCase() === "RENAME") {
-        const newName = prompt("New name:");
-        if (!newName) return;
-        await set(ref(db, `teams/${newName}`), true);
-        const updates = {};
-        Object.entries(dbData.players).forEach(([id, p]) => { if (p.team === oldName) updates[`players/${id}/team`] = newName; });
-        if (Object.keys(updates).length > 0) await update(ref(db), updates);
-        await remove(ref(db, `teams/${oldName}`));
-        state.selectedTeam = newName;
-      } else if (action?.toUpperCase() === "DELETE") {
-        if (confirm(`Delete ${oldName}?`)) { await remove(ref(db, `teams/${oldName}`)); window.goBackToTeams(); }
-      }
-    };
-
+    window.syncFromGoogleSheets = syncFromGoogleSheets;
+    window.addTeam = async () => { const name = prompt("New Team Name:"); if (name) await set(ref(db, `teams/${name}`), true); };
+    window.selectTeam = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
+    window.goBackToTeams = () => { state.screen = 'teamSelect'; state.selectedTeam = null; render(); };
+    window.openDetails = (id) => { state.activePlayerId = id; state.view = 'details'; render(); };
+    window.openPayment = (id) => { state.activePlayerId = id; state.view = 'payment'; render(); };
+    window.closeModals = () => { state.view = 'list'; render(); };
+    
     window.saveDetails = () => {
       updatePlayer(state.activePlayerId, {
         fullName: document.getElementById('det-name').value,
         jerseyNumber: document.getElementById('det-num').value,
         position: document.getElementById('det-pos').value,
         grade: document.getElementById('det-grade').value,
+        team: document.getElementById('det-team').value,
         birthdate: document.getElementById('det-dob').value,
         parentName: document.getElementById('det-pname').value,
         parentEmail: document.getElementById('det-pemail').value,
@@ -235,32 +258,14 @@
       window.closeModals();
     };
 
-    window.handleFileSelect = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const fileName = prompt("File Name:");
-      if (!fileName) return;
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const fileId = 'file-' + Date.now();
-        await set(ref(db, `players/${state.activePlayerId}/files/${fileId}`), { name: fileName, data: e.target.result });
-      };
-      reader.readAsDataURL(file);
-    };
-
-    window.viewFile = (data) => { const win = window.open(); win.document.write(`<iframe src="${data}" frameborder="0" style="border:0; width:100%; height:100%;"></iframe>`); };
-    window.selectTeam = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
-    window.goBackToTeams = () => { state.screen = 'teamSelect'; state.selectedTeam = null; render(); };
-    window.quickAdd = () => {
-      const name = prompt("Athlete Name:");
-      if (name) updatePlayer('p-' + Date.now(), { fullName: name, team: state.selectedTeam, status: 'active' });
-    };
-    window.openDetails = (id) => { state.activePlayerId = id; state.view = 'details'; render(); };
-    window.openPayment = (id) => { state.activePlayerId = id; state.view = 'payment'; render(); };
-    window.closeModals = () => { state.view = 'list'; render(); };
     window.markPaid = (method) => {
       updatePlayer(state.activePlayerId, { lastPaymentMonth: period(), paymentMethod: method });
       window.closeModals();
+    };
+
+    window.quickAdd = () => {
+      const name = prompt("Athlete Name:");
+      if (name) updatePlayer('p-' + Date.now(), { fullName: name, team: state.selectedTeam, status: 'active' });
     };
 
     loadDb();
