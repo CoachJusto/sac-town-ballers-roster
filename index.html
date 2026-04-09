@@ -13,13 +13,12 @@
     .btn-main { width: 240px; padding: 1rem; border-radius: 0.75rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #1e293b; color: #475569; }
-    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.75rem; border-radius: 0.75rem; }
+    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.6rem; border-radius: 0.5rem; }
     
-    /* Condensed Profile Styling */
-    input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; padding: 0.25rem 0.5rem !important; border-radius: 0.25rem !important; font-size: 0.75rem !important; height: 1.75rem !important; }
-    label { font-size: 0.6rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0px; display: block; }
-    .grid-dense { gap: 0.5rem; }
-    .profile-item { display: flex; flex-direction: column; }
+    /* Ultra-Condensed Profile Styling */
+    .profile-modal { background: #0f172a; border: 1px solid #1e293b; width: 90%; max-width: 350px; border-radius: 1rem; padding: 1rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+    input, select { background: #1e293b !important; border: 1px solid #334155 !important; color: white !important; padding: 0.2rem 0.4rem !important; border-radius: 0.2rem !important; font-size: 0.7rem !important; height: 1.5rem !important; width: 100%; }
+    label { font-size: 0.55rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 1px; display: block; }
     
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
@@ -94,7 +93,7 @@
       if (state.screen === 'main') {
         const teams = Object.keys(dbData.teams);
         app.innerHTML = `
-          <div class="flex flex-col items-center pt-12 px-4 w-full relative h-full">
+          <div class="flex flex-col items-center pt-12 px-4 w-full relative">
             <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[10px] font-bold bg-white/10 px-3 py-1 rounded">+ TEAM</button>
             <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-20 mb-10">
             <div class="flex flex-col gap-4">
@@ -124,19 +123,18 @@
 
             <div class="flex-1 overflow-y-auto space-y-2 pb-20">
               ${list.map(([id, p]) => `
-                <div class="player-card flex justify-between items-center">
-                  <div class="cursor-pointer flex-1" onclick="openProfile('${id}')">
+                <div class="player-card flex justify-between items-center cursor-pointer" onclick="openProfile('${id}')">
+                  <div class="flex-1">
                     <div class="font-black uppercase text-sm leading-tight mb-1">${p.fullName}</div>
                     <div class="text-[9px] text-slate-500 font-bold uppercase">
-                        ${isT ? `DIV: ${p.grade} • EXP: ${p.experience}` : `#${p.jersey || '00'} • ${p.pos || 'POS'}`} • AGE: ${p.age || calcAge(p.dob)}
+                        ${isT ? `Signed: ${p.signUpDate}` : `#${p.jersey || '00'} • ${p.pos || 'POS'}`} • AGE: ${p.age || calcAge(p.dob)}
                     </div>
                   </div>
                   <div>
-                    ${isT ? `<button onclick="migrateChoice('${id}')" class="animate-blink text-white text-[9px] font-black h-8 px-4 rounded">MIGRATE</button>` : 
-                      isU ? `<button onclick="migrateChoice('${id}')" class="border border-white text-white text-[9px] font-black h-8 px-4 rounded">ADD</button>` :
-                      `<button onclick="payChoice('${id}')" class="text-[9px] font-black h-8 px-4 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">
+                    ${(!isT && !isU) ? `
+                      <button onclick="event.stopPropagation();payChoice('${id}')" class="text-[9px] font-black h-7 px-3 rounded ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white'}">
                         ${p.paid ? `PAID` : 'UNPAID'}
-                      </button>`
+                      </button>` : ''
                     }
                   </div>
                 </div>
@@ -147,13 +145,12 @@
       }
     }
 
-    // --- DIALOGS ---
     window.confirmAction = (type) => {
         const isSync = type === 'sync';
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black/95 z-[100] flex items-center justify-center p-6';
         modal.innerHTML = `
-            <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800 shadow-2xl">
+            <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
                 <h3 class="text-lg font-black mb-6 uppercase italic text-white">${isSync ? 'Sync Tryout Data?' : 'Clear all players?'}</h3>
                 <div class="flex flex-col gap-3">
                     <button id="confirmBtn" class="py-4 bg-white text-black font-black uppercase rounded-xl text-xs">YES</button>
@@ -177,7 +174,7 @@
 
     window.migrateChoice = (id) => {
         const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-6';
+        modal.className = 'fixed inset-0 bg-black/95 z-[110] flex items-center justify-center p-6';
         modal.innerHTML = `
             <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs text-center border border-slate-800">
                 <div class="flex flex-col gap-3">
@@ -193,12 +190,12 @@
     window.teamBubbles = (id) => {
         const teams = Object.keys(dbData.teams);
         const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/95 z-[60] flex items-center justify-center p-6';
+        modal.className = 'fixed inset-0 bg-black/95 z-[120] flex items-center justify-center p-6';
         modal.innerHTML = `
             <div class="bg-slate-900 p-6 rounded-2xl w-full max-w-xs border border-slate-800 text-center">
-                <p class="text-[10px] font-bold mb-6 uppercase text-slate-500 tracking-widest">Assign Squad</p>
+                <p class="text-[10px] font-bold mb-6 uppercase text-slate-500">Assign Squad</p>
                 <div class="flex flex-wrap justify-center gap-4">
-                    ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center text-[10px] font-black uppercase italic border border-slate-700 active:bg-green-400 active:text-black">${t}</button>`).join('')}
+                    ${teams.map(t => `<button onclick="movePlayer('${id}', '${t}')" class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-[9px] font-black uppercase italic border border-slate-700">${t}</button>`).join('')}
                 </div>
                 <button onclick="this.closest('.fixed').remove()" class="mt-8 text-[10px] font-bold text-slate-500">CANCEL</button>
             </div>
@@ -206,48 +203,71 @@
         document.body.appendChild(modal);
     };
 
-    // --- CONDENSED PROFILE ---
+    // --- ULTRA CONDENSED PROFILE ---
     window.openProfile = (id) => {
       const p = dbData.players[id];
-      const isLocked = p.team === 'Tryouts';
+      const isT = p.team === 'Tryouts';
       
       const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black z-50 p-4';
+      modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
       modal.innerHTML = `
-        <div class="max-w-sm mx-auto h-full flex flex-col">
-          <div class="flex justify-between items-center mb-2">
-            <h2 class="text-base font-black italic uppercase">Player Profile</h2>
-            ${isLocked ? `<button onclick="migrateChoice('${id}')" class="text-[9px] font-black bg-white text-black px-3 py-1 rounded animate-blink">MIGRATE</button>` : `<button onclick="migrateChoice('${id}')" class="text-xl">⇆</button>`}
+        <div class="profile-modal">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xs font-black uppercase italic tracking-wider">Player Profile</h2>
+            ${isT ? `<button onclick="migrateChoice('${id}')" class="text-[8px] font-black bg-white text-black px-2 py-1 rounded animate-blink">MIGRATE</button>` : ''}
           </div>
           
-          <div class="grid grid-cols-2 grid-dense flex-1 overflow-y-auto">
-            <div class="col-span-2 profile-item"><label>Athlete's Name</label><input id="p-name" value="${p.fullName}"></div>
-            <div class="profile-item"><label>Jersey #</label><input id="p-num" value="${p.jersey || ''}" ${isLocked ? 'disabled opacity-30' : ''}></div>
-            <div class="profile-item"><label>Position</label>
-                <select id="p-pos" ${isLocked ? 'disabled opacity-30' : ''}>
-                    <option value="">Select</option>
-                    <option ${p.pos==='PG'?'selected':''}>PG</option>
-                    <option ${p.pos==='SG'?'selected':''}>SG</option>
-                    <option ${p.pos==='SF'?'selected':''}>SF</option>
-                    <option ${p.pos==='PF'?'selected':''}>PF</option>
-                    <option ${p.pos==='C'?'selected':''}>C</option>
-                </select>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="col-span-3">
+                <label>Name</label><input id="p-name" value="${p.fullName}">
             </div>
-            <div class="profile-item"><label>Age</label><input value="${p.age || calcAge(p.dob)}" disabled class="opacity-50"></div>
-            <div class="profile-item"><label>Division</label><input id="p-grade" value="${p.grade || ''}"></div>
-            <div class="col-span-2 profile-item"><label>Birthdate</label><input id="p-dob" type="date" value="${p.dob || ''}"></div>
-            <div class="col-span-2 profile-item"><label>Experience</label><input id="p-exp" value="${p.experience || ''}"></div>
+            <div>
+                <label>Age</label><input value="${p.age || calcAge(p.dob)}" disabled class="opacity-40">
+            </div>
+            <div>
+                <label>Div</label><input id="p-grade" value="${p.grade || ''}">
+            </div>
+            <div>
+                <label>Jersey</label><input id="p-num" value="${p.jersey || ''}" ${isT ? 'disabled opacity-30' : ''}>
+            </div>
+            <div class="col-span-3">
+                <label>Experience</label><input id="p-exp" value="${p.experience || ''}">
+            </div>
+            <div class="col-span-3">
+                <label>Birthdate</label><input id="p-dob" type="date" value="${p.dob || ''}">
+            </div>
 
-            ${isLocked ? '' : `
-              <div class="col-span-2 profile-item"><label>Parent Name</label><input id="p-pname" value="${p.parentName || ''}"></div>
-              <div class="profile-item"><label>Phone</label><input id="p-phone" value="${p.parentPhone || ''}"></div>
-              <div class="profile-item"><label>Email</label><input id="p-email" value="${p.parentEmail || ''}"></div>
-            `}
+            ${!isT ? `
+                <div class="col-span-2">
+                    <label>Parent</label><input id="p-pname" value="${p.parentName || ''}">
+                </div>
+                <div>
+                    <label>Pos</label>
+                    <select id="p-pos">
+                        <option value="">--</option>
+                        <option ${p.pos==='PG'?'selected':''}>PG</option>
+                        <option ${p.pos==='SG'?'selected':''}>SG</option>
+                        <option ${p.pos==='SF'?'selected':''}>SF</option>
+                        <option ${p.pos==='PF'?'selected':''}>PF</option>
+                        <option ${p.pos==='C'?'selected':''}>C</option>
+                    </select>
+                </div>
+                <div class="col-span-3 grid grid-cols-2 gap-2">
+                    <div><label>Phone</label><input id="p-phone" value="${p.parentPhone || ''}"></div>
+                    <div><label>Email</label><input id="p-email" value="${p.parentEmail || ''}"></div>
+                </div>
+            ` : ''}
           </div>
+
+          ${isT ? `
+            <div class="mt-3 p-2 border border-dashed border-slate-800 rounded text-center">
+                <p class="text-[7px] text-slate-500 uppercase font-black">More details available when added to roster</p>
+            </div>
+          ` : ''}
           
-          <div class="mt-2 grid grid-cols-2 gap-3 pb-6">
-            <button onclick="this.closest('.fixed').remove()" class="py-2 text-[10px] font-bold text-slate-500 uppercase">Cancel</button>
-            <button onclick="saveProfile('${id}')" class="py-2 bg-green-500 text-black font-black rounded text-[10px] uppercase">Save Changes</button>
+          <div class="mt-4 flex gap-2">
+            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-1.5 text-[9px] font-bold text-slate-500 uppercase">Cancel</button>
+            <button onclick="saveProfile('${id}')" class="flex-1 py-1.5 bg-green-500 text-black font-black rounded text-[9px] uppercase">Save</button>
           </div>
         </div>
       `;
