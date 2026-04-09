@@ -74,7 +74,7 @@
             const id = 'p-' + Date.now() + Math.floor(Math.random()*1000);
             set(ref(db, `players/${id}`), {
               fullName: name,
-              signUpDate: c[0]?.replace(/"/g, '') || '',
+              signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
               age: c[6]?.replace(/"/g, '') || 'N/A', 
               experience: c[7]?.replace(/"/g, '') || 'None', 
               grade: c[9]?.replace(/"/g, '') || 'N/A', 
@@ -105,9 +105,17 @@
       } else {
         const isT = state.selectedTeam === 'Tryouts';
         const isU = state.selectedTeam === 'Unrostered';
+        
         const list = Object.entries(dbData.players)
           .filter(([_, p]) => p.team === state.selectedTeam)
-          .sort((a,b) => isT ? a[1].fullName.localeCompare(b[1].fullName) : a[1].fullName.localeCompare(b[1].fullName));
+          .sort((a,b) => {
+              if (isT) {
+                  // Sort by newest date first
+                  return new Date(b[1].signUpDate) - new Date(a[1].signUpDate);
+              }
+              // Alpha sort for rostered teams
+              return a[1].fullName.localeCompare(b[1].fullName);
+          });
 
         app.innerHTML = `
           <div class="p-5 flex flex-col h-full">
@@ -144,6 +152,7 @@
       }
     }
 
+    // Modal and profile logic remains unchanged below
     window.confirmAction = (type) => {
         const isSync = type === 'sync';
         const modal = document.createElement('div');
