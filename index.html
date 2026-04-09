@@ -94,7 +94,7 @@
                   <div class="text-right">
                     ${(!isT) ? `
                       <button onclick="event.stopPropagation();showPayModal('${id}')" 
-                              class="flex flex-col items-center justify-center min-w-[95px] h-12 rounded-lg ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white font-black'}">
+                              class="flex flex-col items-center justify-center min-w-[90px] h-11 rounded-lg ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white font-black'}">
                         <span class="text-[12px] font-black">${p.paid ? 'PAID' : 'UNPAID'}</span>
                         ${p.paidMethod ? `<span class="pay-sub text-[8px]">VIA ${p.paidMethod}</span>` : ''}
                       </button>
@@ -255,37 +255,28 @@
 
     window.syncSheet = async () => {
       const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vStWiziLmn7ZOT7DZT7ak_E4XDLsl4g3yEBqeDARSz7LC6NoFj4GfpKSBjrKtKUkxSsvEegywlD6Rd5/pub?gid=1820988393&single=true&output=csv";
-      
       try {
         const res = await fetch(csvUrl);
         const text = await res.text();
         const rows = text.split('\n').slice(1);
-
         rows.forEach(row => {
           const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          const athleteName = c[5]?.replace(/"/g, '').trim();
-
-          if (athleteName) {
+          const name = c[5]?.replace(/"/g, '').trim(); // F
+          if (name) {
             db.ref('players').push({
-              fullName: athleteName,
+              fullName: name,
               signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
-              parent: c[1]?.replace(/"/g, '') || 'N/A',
-              phone: c[2]?.replace(/"/g, '') || 'N/A',
-              email: c[3]?.replace(/"/g, '') || 'N/A',
-              age: c[6]?.replace(/"/g, '') || 'N/A',
-              experience: c[7]?.replace(/"/g, '') || 'None',
-              grade: c[9]?.replace(/"/g, '') || 'N/A',
-              team: 'Tryouts',
-              paid: false
+              parent: c[1]?.replace(/"/g, '') || 'N/A',   // B
+              phone: c[2]?.replace(/"/g, '') || 'N/A',    // C
+              email: c[3]?.replace(/"/g, '') || 'N/A',    // D
+              age: c[6]?.replace(/"/g, '') || 'N/A',      // G
+              experience: c[7]?.replace(/"/g, '') || 'None', // H
+              grade: c[9]?.replace(/"/g, '') || 'N/A',    // J
+              team: 'Tryouts'
             });
           }
         });
-
-        alert("Sync Complete!");
-      } catch (e) {
-        console.error(e);
-        alert("Sync error. Check the console.");
-      }
+      } catch (e) { alert("Sync error"); }
     };
   </script>
 </body>
