@@ -21,11 +21,6 @@
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
     .menu-btn { width: 100%; padding: 1rem; background: #1e293b; border-radius: 0.75rem; font-weight: 900; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 0.5rem; }
-    
-    /* Search Bar Styles */
-    .search-container { position: relative; margin-bottom: 1rem; }
-    .search-input { padding-left: 2.5rem !important; border-radius: 2rem !important; background: rgba(30, 41, 59, 0.5) !important; border-color: #334155 !important; }
-    .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 1.2rem; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -43,7 +38,7 @@
     const db = firebase.database();
 
     let dbData = { players: {}, teams: {} };
-    let state = { screen: 'main', selectedTeam: null, searchQuery: '' };
+    let state = { screen: 'main', selectedTeam: null };
 
     db.ref('/').on('value', (snap) => {
       const data = snap.val() || {};
@@ -72,13 +67,10 @@
       } else {
         const isT = state.selectedTeam === 'Tryouts';
         const isU = state.selectedTeam === 'Unrostered';
+        const isActive = !isT && !isU;
         
         const list = Object.entries(dbData.players)
-          .filter(([id, p]) => {
-            const matchesTeam = p.team === state.selectedTeam;
-            const matchesSearch = p.fullName.toLowerCase().includes(state.searchQuery.toLowerCase());
-            return matchesTeam && matchesSearch;
-          })
+          .filter(([id, p]) => p.team === state.selectedTeam)
           .sort((a, b) => isT ? new Date(b[1].signUpDate || 0) - new Date(a[1].signUpDate || 0) : (a[1].fullName || "").localeCompare(b[1].fullName || ""));
 
         const headerTitle = (isT || isU) ? state.selectedTeam : `${state.selectedTeam}'S ROSTER`;
@@ -87,26 +79,20 @@
           <div class="p-5 flex flex-col h-full">
             <div class="flex justify-between items-center mb-4">
               <button onclick="goBack()" class="text-slate-400 text-[11px] font-black uppercase">← Back</button>
-              <div class="text-center">
-                <h2 class="text-xl font-black italic uppercase leading-none">${headerTitle}</h2>
-                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">${list.length} Players</p>
+              <div class="text-center flex items-center gap-2 justify-center">
+                <div>
+                    <h2 class="text-xl font-black italic uppercase leading-none">${headerTitle}</h2>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">${list.length} Players</p>
+                </div>
+                ${isActive ? `<button onclick="manualAddPlayer()" class="bg-white/10 w-6 h-6 rounded-full flex items-center justify-center font-bold text-lg leading-none pb-1">+</button>` : ''}
               </div>
               <div class="flex gap-2">
                 ${isT ? `<button onclick="confirmClear()" class="text-red-500 text-[10px] font-black">CLEAR</button>` : ''}
                 ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[10px] font-black uppercase">Sync</button>` : '<div class="w-8"></div>'}
               </div>
             </div>
-
-            <div class="search-container">
-              <span class="search-icon">🔍</span>
-              <input type="text" 
-                     placeholder="Search player name..." 
-                     class="search-input" 
-                     value="${state.searchQuery}"
-                     oninput="updateSearch(this.value)">
-            </div>
             
-            <div class="flex-1 overflow-y-auto space-y-1 pb-24">
+            <div class="flex-1 overflow-y-auto space-y-1 pb-10">
               ${list.map(([id, p]) => `
                 <div class="player-card flex justify-between items-center" onclick="openProfile('${id}')">
                   <div class="flex-1">
@@ -126,29 +112,26 @@
               `).join('')}
               ${list.length === 0 ? `<div class="text-center text-slate-600 text-[12px] mt-10 uppercase font-bold">No players found</div>` : ''}
             </div>
-
-            ${!isT ? `
-              <div class="fixed bottom-6 left-0 right-0 px-5">
-                <button onclick="triggerUpload()" class="w-full py-4 bg-white text-black font-black uppercase italic rounded-xl shadow-2xl">+ ADD FILE</button>
-                <input type="file" id="hidden-file" class="hidden" onchange="handleFileUpload(this)">
-              </div>
-            ` : ''}
           </div>
         `;
       }
     }
 
-    window.updateSearch = (val) => {
-      state.searchQuery = val;
-      render();
-      // Keep the focus on the input after re-render
-      const input = document.querySelector('.search-input');
-      input.focus();
-      input.setSelectionRange(val.length, val.length);
+    window.manualAddPlayer = () => {
+        const name = prompt("Player Full Name:");
+        if (name) {
+            db.ref('players').push({
+                fullName: name,
+                team: state.selectedTeam,
+                paid: false,
+                jersey: '00',
+                pos: 'SELECT'
+            });
+        }
     };
 
-    window.goBack = () => { state.screen = 'main'; state.searchQuery = ''; render(); };
-    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; state.searchQuery = ''; render(); };
+    window.goBack = () => { state.screen = 'main'; render(); };
+    window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
 
     window.openProfile = (id) => {
       const p = dbData.players[id];
@@ -199,7 +182,6 @@
               <div><label>Email</label><input id="edit-email" value="${p.email || ''}"></div>
               <div><label>Age</label><input value="${p.age || 'N/A'}" disabled class="opacity-50"></div>
             </div>
-            <button onclick="triggerUpload()" class="w-full py-3 bg-white/10 text-[11px] font-black uppercase border border-slate-700 rounded-lg mb-4">+ ADD FILE</button>
             <div class="flex gap-3">
               <button onclick="this.closest('.fixed').remove()" class="flex-1 py-4 bg-slate-800 text-[12px] font-black uppercase rounded-xl">Cancel</button>
               <button onclick="saveChanges('${id}')" class="flex-1 py-4 bg-green-500 text-black text-[12px] font-black uppercase rounded-xl">Save</button>
@@ -272,15 +254,6 @@
     window.confirmPay = (id, method) => {
       db.ref(`players/${id}`).update({ paid: true, paidMethod: method });
       document.querySelectorAll('.fixed').forEach(m => m.remove());
-    };
-
-    window.triggerUpload = () => { document.getElementById('hidden-file').click(); };
-    window.handleFileUpload = (input) => {
-      if(!input.files[0]) return;
-      const fileName = prompt("Name this file:");
-      if(!fileName) { input.value = ''; return; }
-      alert(`File "${fileName}" saved.`);
-      input.value = '';
     };
 
     window.doMove = (id, team) => {
