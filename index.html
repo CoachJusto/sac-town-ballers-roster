@@ -13,13 +13,15 @@
     .btn-main { width: 280px; padding: 1.25rem; border-radius: 1rem; text-transform: uppercase; font-style: italic; font-weight: 900; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; letter-spacing: 0.05em; }
     .btn-gradient { background: linear-gradient(135deg, #38ff14 0%, #028e3a 100%); color: black; }
     .btn-outline { border: 2px dashed #334155; color: #94a3b8; }
-    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 1rem 1.25rem; border-radius: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; }
+    /* Compact Player Card */
+    .player-card { background: #0f172a; border: 1px solid #1e293b; padding: 0.6rem 1rem; border-radius: 0.75rem; margin-bottom: 0.4rem; cursor: pointer; }
     .profile-modal { background: #0f172a; border: 2px solid #334155; width: 92%; max-width: 400px; border-radius: 1.5rem; padding: 1.5rem; position: relative; max-height: 90vh; overflow-y: auto; }
-    input, select { background: #1e293b !important; border: 1px solid #475569 !important; color: white !important; padding: 0.5rem 0.75rem !important; border-radius: 0.5rem !important; width: 100%; height: 3rem; font-size: 1rem; }
-    label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; display: block; letter-spacing: 0.05em; }
+    input, select { background: #1e293b !important; border: 1px solid #475569 !important; color: white !important; padding: 0.5rem 0.75rem !important; border-radius: 0.5rem !important; width: 100%; height: 2.8rem; font-size: 1rem; }
+    label { font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px; display: block; letter-spacing: 0.05em; }
     .pay-sub { font-size: 9px; font-weight: 900; text-transform: uppercase; margin-top: 2px; }
     @keyframes blink-red { 0%, 100% { background: #ef4444; } 50% { background: #7f1d1d; } }
     .animate-blink { animation: blink-red 1s infinite; }
+    .menu-btn { width: 100%; padding: 1rem; background: #1e293b; border-radius: 0.75rem; font-weight: 900; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body>
@@ -56,7 +58,7 @@
           <div class="flex flex-col items-center pt-12 px-4 w-full relative h-full">
             <button onclick="addTeam()" class="absolute top-4 right-4 text-white text-[12px] font-bold bg-white/10 px-4 py-2 rounded">+ TEAM</button>
             <img src="https://i.ibb.co/s9vfBcCz/Ballers-BLogo-Final.png" class="w-24 mb-10">
-            <div class="flex flex-col gap-5 overflow-y-auto pb-10">
+            <div class="flex flex-col gap-4 overflow-y-auto pb-10">
               ${teams.map(t => `<button onclick="go('${t}')" class="btn-main btn-gradient">${t}</button>`).join('')}
               <button onclick="go('Tryouts')" class="btn-main btn-outline">TRYOUTS</button>
               <button onclick="go('Unrostered')" class="mt-4 text-[12px] font-bold text-slate-500 uppercase tracking-widest self-center">View Unrostered List</button>
@@ -71,35 +73,38 @@
           .filter(([id, p]) => p.team === state.selectedTeam)
           .sort((a, b) => isT ? new Date(b[1].signUpDate || 0) - new Date(a[1].signUpDate || 0) : (a[1].fullName || "").localeCompare(b[1].fullName || ""));
 
+        const headerTitle = (isT || isU) ? state.selectedTeam : `${state.selectedTeam}'S ROSTER`;
+
         app.innerHTML = `
           <div class="p-5 flex flex-col h-full">
-            <div class="flex justify-between items-center mb-6">
-              <button onclick="goBack()" class="text-slate-400 text-[13px] font-black uppercase">← Back</button>
-              <h2 class="text-2xl font-black italic uppercase text-center">${state.selectedTeam}</h2>
+            <div class="flex justify-between items-center mb-4">
+              <button onclick="goBack()" class="text-slate-400 text-[11px] font-black uppercase">← Back</button>
+              <div class="text-center">
+                <h2 class="text-xl font-black italic uppercase leading-none">${headerTitle}</h2>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">${list.length} Players</p>
+              </div>
               <div class="flex gap-2">
-                ${isT ? `<button onclick="confirmClear()" class="text-red-500 text-[12px] font-black">CLEAR</button>` : ''}
-                ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[12px] font-black">SYNC</button>` : ''}
+                ${isT ? `<button onclick="confirmClear()" class="text-red-500 text-[10px] font-black">CLEAR</button>` : ''}
+                ${isT ? `<button onclick="syncSheet()" class="text-green-400 text-[10px] font-black uppercase">Sync</button>` : '<div class="w-8"></div>'}
               </div>
             </div>
             
-            <div class="flex-1 overflow-y-auto space-y-2 pb-24">
+            <div class="flex-1 overflow-y-auto space-y-1 pb-24">
               ${list.map(([id, p]) => `
                 <div class="player-card flex justify-between items-center" onclick="openProfile('${id}')">
                   <div class="flex-1">
-                    <div class="font-black uppercase text-lg leading-none">${p.fullName}</div>
-                    <div class="text-[11px] text-slate-400 font-bold uppercase mt-2">
+                    <div class="font-black uppercase text-[16px] leading-tight">${p.fullName}</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase">
                       ${isT ? `DIV: ${p.grade || 'N/A'} • EXP: ${p.experience || 'N/A'}` : `#${p.jersey || '00'} • ${p.pos || 'POS'}`}
                     </div>
                   </div>
-                  <div class="text-right">
-                    ${(!isT) ? `
-                      <button onclick="event.stopPropagation();showPayModal('${id}')" 
-                              class="flex flex-col items-center justify-center min-w-[90px] h-11 rounded-lg ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white font-black'}">
-                        <span class="text-[12px] font-black">${p.paid ? 'PAID' : 'UNPAID'}</span>
-                        ${p.paidMethod ? `<span class="pay-sub text-[8px]">VIA ${p.paidMethod}</span>` : ''}
-                      </button>
-                    ` : ''}
-                  </div>
+                  ${(!isT) ? `
+                    <button onclick="event.stopPropagation();showPayModal('${id}')" 
+                            class="flex flex-col items-center justify-center min-w-[85px] h-10 rounded-lg ${p.paid ? 'bg-green-500/20 text-green-400' : 'animate-blink text-white font-black'}">
+                      <span class="text-[10px] font-black">${p.paid ? 'PAID' : 'UNPAID'}</span>
+                      ${p.paidMethod ? `<span class="pay-sub text-[7px]">VIA ${p.paidMethod}</span>` : ''}
+                    </button>
+                  ` : ''}
                 </div>
               `).join('')}
             </div>
@@ -115,11 +120,9 @@
       }
     }
 
-    // --- NAVIGATION ---
     window.goBack = () => { state.screen = 'main'; render(); };
     window.go = (t) => { state.selectedTeam = t; state.screen = 'roster'; render(); };
 
-    // --- MODAL LOGIC ---
     window.openProfile = (id) => {
       const p = dbData.players[id];
       if(!p) return;
@@ -149,7 +152,10 @@
       } else {
         modal.innerHTML = `
           <div class="profile-modal">
-            <div class="font-black uppercase text-2xl italic mb-6 border-b border-slate-800 pb-4">${p.fullName}</div>
+            <div class="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+              <div class="font-black uppercase text-2xl italic leading-none">${p.fullName}</div>
+              <button onclick="showActiveMigrateMenu('${id}')" class="text-2xl text-slate-400">⇄</button>
+            </div>
             <div class="grid grid-cols-2 gap-4 mb-6">
               <div><label>Jersey #</label><input id="edit-jersey" value="${p.jersey || ''}" placeholder="00"></div>
               <div>
@@ -160,12 +166,13 @@
                 </select>
               </div>
             </div>
-            <div class="space-y-4 mb-8">
+            <div class="space-y-4 mb-6">
               <div><label>Parent/Guardian</label><input id="edit-parent" value="${p.parent || ''}"></div>
               <div><label>Phone</label><input id="edit-phone" value="${p.phone || ''}"></div>
               <div><label>Email</label><input id="edit-email" value="${p.email || ''}"></div>
               <div><label>Age</label><input value="${p.age || 'N/A'}" disabled class="opacity-50"></div>
             </div>
+            <button onclick="triggerUpload()" class="w-full py-3 bg-white/10 text-[11px] font-black uppercase border border-slate-700 rounded-lg mb-4">+ ADD FILE</button>
             <div class="flex gap-3">
               <button onclick="this.closest('.fixed').remove()" class="flex-1 py-4 bg-slate-800 text-[12px] font-black uppercase rounded-xl">Cancel</button>
               <button onclick="saveChanges('${id}')" class="flex-1 py-4 bg-green-500 text-black text-[12px] font-black uppercase rounded-xl">Save</button>
@@ -176,15 +183,35 @@
       document.body.appendChild(modal);
     };
 
-    window.saveChanges = (id) => {
-      const updates = {};
-      const fields = ['edit-grade', 'edit-exp', 'edit-jersey', 'edit-pos', 'edit-parent', 'edit-phone', 'edit-email'];
-      fields.forEach(f => {
-        const el = document.getElementById(f);
-        if(el) updates[f.replace('edit-', '')] = el.value;
-      });
-      db.ref(`players/${id}`).update(updates);
-      document.querySelectorAll('.fixed').forEach(m => m.remove());
+    window.showActiveMigrateMenu = (id) => {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-[200]';
+      modal.innerHTML = `
+        <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-xs text-center border border-slate-800">
+          <p class="text-white font-black uppercase italic mb-8">Manage Player</p>
+          <button onclick="showTeamPicker('${id}')" class="menu-btn bg-slate-800 text-white">Change Team</button>
+          <button onclick="doMove('${id}', 'Unrostered')" class="menu-btn bg-red-900/40 text-red-400 border border-red-900/50">Remove</button>
+          <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-500 font-bold uppercase text-[11px]">Cancel</button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    };
+
+    window.showTeamPicker = (playerId) => {
+      const teams = Object.keys(dbData.teams);
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-[300]';
+      modal.innerHTML = `
+        <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-xs text-center border border-slate-800">
+          <p class="text-white font-black uppercase italic mb-8">Select Team</p>
+          <div class="space-y-3">
+            ${teams.map(t => `<button onclick="doMove('${playerId}', '${t}')" class="menu-btn bg-slate-800 text-white">${t}</button>`).join('')}
+            <button onclick="doMove('${playerId}', 'Unrostered')" class="menu-btn bg-slate-800/50 text-slate-400">Move to Unrostered</button>
+            <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-500 font-bold uppercase text-[11px]">Cancel</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
     };
 
     window.showPayModal = (id) => {
@@ -194,15 +221,25 @@
       modal.innerHTML = `
         <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-xs text-center border border-slate-800">
           <p class="text-white font-black uppercase italic mb-8">Payment Method</p>
-          <div class="grid grid-cols-1 gap-3">
+          <div class="space-y-3">
             ${methods.map(m => `
-              <button onclick="confirmPay('${id}', '${m}')" class="py-4 bg-slate-800 rounded-xl font-black text-sm hover:bg-green-500 hover:text-black transition-colors">${m}</button>
+              <button onclick="confirmPay('${id}', '${m}')" class="menu-btn bg-slate-800 text-white hover:bg-green-500 hover:text-black transition-colors">${m}</button>
             `).join('')}
             <button onclick="this.closest('.fixed').remove()" class="mt-4 text-slate-500 font-bold uppercase text-[11px]">Cancel</button>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
+    };
+
+    window.saveChanges = (id) => {
+      const updates = {};
+      ['edit-grade', 'edit-exp', 'edit-jersey', 'edit-pos', 'edit-parent', 'edit-phone', 'edit-email'].forEach(f => {
+        const el = document.getElementById(f);
+        if(el) updates[f.replace('edit-', '')] = el.value;
+      });
+      db.ref(`players/${id}`).update(updates);
+      document.querySelectorAll('.fixed').forEach(m => m.remove());
     };
 
     window.confirmPay = (id, method) => {
@@ -213,26 +250,10 @@
     window.triggerUpload = () => { document.getElementById('hidden-file').click(); };
     window.handleFileUpload = (input) => {
       if(!input.files[0]) return;
-      const fileName = prompt("What are you naming this file? (e.g. Birth Certificate)");
-      if(!fileName) { alert("File name is required."); input.value = ''; return; }
+      const fileName = prompt("Name this file:");
+      if(!fileName) { input.value = ''; return; }
       alert(`File "${fileName}" saved.`);
       input.value = '';
-    };
-
-    window.showTeamPicker = (playerId) => {
-      const teams = Object.keys(dbData.teams);
-      const modal = document.createElement('div');
-      modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200]';
-      modal.innerHTML = `
-        <div class="bg-slate-900 p-8 rounded-2xl w-full max-w-xs text-center border border-slate-800">
-          <p class="text-slate-400 font-black uppercase text-[12px] mb-8 tracking-widest">Select Target Team</p>
-          <div class="flex flex-wrap gap-4 justify-center">
-            ${teams.map(t => `<button onclick="doMove('${playerId}', '${t}')" class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center font-black italic uppercase border-2 border-slate-700">${t}</button>`).join('')}
-            <button onclick="doMove('${playerId}', 'Unrostered')" class="w-full py-4 bg-slate-800/50 text-[11px] font-black uppercase rounded-xl mt-2">Move to Unrostered</button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal);
     };
 
     window.doMove = (id, team) => {
@@ -261,22 +282,24 @@
         const rows = text.split('\n').slice(1);
         rows.forEach(row => {
           const c = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-          const name = c[5]?.replace(/"/g, '').trim(); // F
-          if (name) {
+          const athleteName = c[5]?.replace(/"/g, '').trim();
+          if (athleteName) {
             db.ref('players').push({
-              fullName: name,
+              fullName: athleteName,
               signUpDate: c[0]?.replace(/"/g, '') || new Date().toISOString(),
-              parent: c[1]?.replace(/"/g, '') || 'N/A',   // B
-              phone: c[2]?.replace(/"/g, '') || 'N/A',    // C
-              email: c[3]?.replace(/"/g, '') || 'N/A',    // D
-              age: c[6]?.replace(/"/g, '') || 'N/A',      // G
-              experience: c[7]?.replace(/"/g, '') || 'None', // H
-              grade: c[9]?.replace(/"/g, '') || 'N/A',    // J
-              team: 'Tryouts'
+              parent: c[1]?.replace(/"/g, '') || 'N/A',
+              phone: c[2]?.replace(/"/g, '') || 'N/A',
+              email: c[3]?.replace(/"/g, '') || 'N/A',
+              age: c[6]?.replace(/"/g, '') || 'N/A',
+              experience: c[7]?.replace(/"/g, '') || 'None',
+              grade: c[9]?.replace(/"/g, '') || 'N/A',
+              team: 'Tryouts',
+              paid: false
             });
           }
         });
-      } catch (e) { alert("Sync error"); }
+        alert("Sync Complete!");
+      } catch (e) { console.error(e); alert("Sync error"); }
     };
   </script>
 </body>
